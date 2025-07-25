@@ -1,0 +1,3 @@
+{"location": "Multiple binaries and scripts", "confidence": 0.0, "description": "REDACTED_SENSITIVE_DATA", "code_snippet": "config_get_bool foreground $1 foreground 0\nconfig_load system\nconfig_foreach system_config system", "link_identifiers": ["config_get", "config_set", "config_load", "config_commit", "config_restore"]}
+{"location": "bin/nvram, bin/readycloud_nvram", "confidence": 0.0, "description": "general vulnerability", "code_snippet": "", "link_identifiers": ["nvram", "readycloud_nvram", "config_"]}
+{"location": "etc/init.d/rcS", "confidence": 0.0, "description": "general vulnerability", "code_snippet": "config_load system\nconfig_foreach system_config system", "link_identifiers": ["rcS", "init.d", "config_load"]}

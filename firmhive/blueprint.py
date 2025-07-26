@@ -37,7 +37,7 @@ DEFAULT_VERIFICATION_INSTRUCTION_TEMPLATE = (
     "**Provide Conclusion**: At the end of the analysis, `final_response` must be a JSON object containing the following fields:\n"
     "    - `accuracy`: (string) Assessment of the accuracy of the alert description. Must be 'accurate', 'inaccurate', or 'partially'.\n"
     "    - `vulnerability`: (boolean) Determine if the description is sufficient to constitute a real vulnerability. Must be True or False. The prerequisite is that the attacker is a user already connected to the device and possesses valid login credentials.\n"
-    "    - `risk_level`: (string) Given that `vulnerability` is `true`, the exploitation complexity of the vulnerability. Must be 'Low', 'Medium', or 'High'.\n"
+    "    - `risk_level`: (string) Given that `vulnerability` is `true`, the risk level of the vulnerability. Must be 'Low', 'Medium', or 'High'.\n"
     "    - `reason`: (string) Detailed explanation of your judgment, which must support all the above conclusions.For findings confirmed as true vulnerabilities, this field must also provide a reproducible attack payload or Proof of Concept (PoC) steps, clearly describing how to exploit the vulnerability.\n"
 )
 

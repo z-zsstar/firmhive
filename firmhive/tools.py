@@ -45,7 +45,7 @@ class ShellExecutorTool(ExecutableTool):
         file_name = os.path.basename(file_path) if file_path else "Not specified"
         current_dir = self.context.get("current_dir", "Not specified")
 
-        self.description = f"""Execute read-only shell commands in the current directory ({os.path.basename(current_dir)}). The current analysis focus is on the file: {file_name}.
+        self.description = f"""Execute read-only shell commands in the current directory ({os.path.basename(current_dir)}). 
     **Warning:** This tool is strictly confined to the current working directory. All file operations must not reference parent or any other directories. It is recommended to use the `file` tool for exploration and identification within the current directory.
     **Note:** All commands are executed in the current directory. All path arguments should be relative to the current directory. Paths containing '/' or '..' are forbidden.
     Supported commands: {', '.join(self.ALLOWED_COMMANDS)}.

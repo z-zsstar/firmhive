@@ -375,6 +375,8 @@ def create_file_analysis_config(
     
     l0_delegators: List[Union[Type[ExecutableTool], AssistantToolConfig]] = [
         GetContextInfoTool,
+        ShellExecutorTool,
+        Radare2Tool,
         AssistantToolConfig(
             assistant_class=BaseAssistant,
             sub_agent_config=l1_agent_cfg,

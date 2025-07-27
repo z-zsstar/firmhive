@@ -539,8 +539,8 @@ Retry generating the response.
                 if isinstance(action_input, dict) and "final_response" in action_input:
                     final_answer = action_input["final_response"]
                 else:
-                    final_answer = parsed_response.get("thought", "Completed but no clear answer.")
-                break 
+                    final_answer = action_input
+                break
 
             elif action and action != "finish" and status == "continue": 
                 if not isinstance(action_input, dict):

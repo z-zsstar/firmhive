@@ -14,7 +14,7 @@ from agent.core.builder import build_agent, AgentConfig, AssistantToolConfig
 
 from firmhive.utils.finder import find_firmware_root
 from firmhive.utils.convert2md import load_knowledge_base
-from firmhive.tools import FlexibleContext, ExecutableTool, GetContextInfoTool, ShellExecutorTool, Radare2Tool
+from firmhive.tools import FlexibleContext, ExecutableTool, GetContextInfoTool, ShellExecutorTool, Radare2Tool, Radare2FileTargetTool
     #  VulnerabilitySearchTool
 
 from firmhive.knowagent import KnowledgeBaseAgent,QueryFindingsTool,ListUniqueValuesTool,StoreFindingsTool,DEFAULT_KB_SYSTEM_PROMPT
@@ -172,7 +172,7 @@ class ExecutorAgent(BaseAgent):
         self.current_dir = context.get("current_dir")
 
         tools_to_pass = tools if tools is not None else DEFAULT_TOOL_CLASSES
-        self.messages_filters = messages_filters if messages_filters else [{'from': context.get('base_path')+os.path.sep, 'to': ''}] if context and context.get('base_path') else []
+        self.messages_filters = messages_filters if messages_filters else [{'from': context.get('base_path')+os.path.sep, 'to': ''}, {'from': 'user_name', 'to': 'user'}] if context and context.get('base_path') else []
         
         super().__init__(
             tools=tools_to_pass, 
@@ -204,7 +204,7 @@ class PlannerAgent(BaseAgent):
         self.current_dir = context.get("current_dir")
 
         tools_to_pass = tools if tools is not None else DEFAULT_TOOL_CLASSES
-        self.messages_filters = messages_filters if messages_filters else [{'from': context.get('base_path')+os.path.sep, 'to': ''}] if context and context.get('base_path') else []
+        self.messages_filters = messages_filters if messages_filters else [{'from': context.get('base_path')+os.path.sep, 'to': ''}, {'from': 'user_name', 'to': 'user'}] if context and context.get('base_path') else []
         
         super().__init__(
             tools=tools_to_pass, 
@@ -342,6 +342,7 @@ def create_file_analysis_config(
 
     l1_tool_configs: List[Union[Type[ExecutableTool], AssistantToolConfig]] = [
         *DEFAULT_TOOL_CLASSES.copy(),
+        call_chain_assistant_tool_cfg,
         # VulnerabilitySearchTool(),for CVE search
         AssistantToolConfig(
             assistant_class=BaseAssistant,
@@ -446,6 +447,7 @@ def create_firmware_analysis_blueprint(
         worker_tools = [
             GetContextInfoTool,
             ShellExecutorTool,
+            Radare2FileTargetTool,
             AssistantToolConfig(
                 assistant_class=DeepFileAnalysisAssistant,
                 sub_agent_config=file_analyzer_config,

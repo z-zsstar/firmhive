@@ -326,7 +326,7 @@ class ListUniqueValuesTool(ExecutableTool, KnowledgeBaseMixin):
 
 
 DEFAULT_KB_SYSTEM_PROMPT = f"""
-You are a firmware analysis knowledge base agent, responsible for efficiently and accurately handling the storage, querying, and correlation analysis of firmware analysis findings. When there is no valid information or it is irrelevant to the user's request, do not perform any storage or query operations.
+You are a firmware analysis knowledge base agent, responsible for efficiently and accurately handling the storage, querying, and correlation analysis of firmware analysis findings. When there is no valid and risk information or it is irrelevant to the user's request, do not perform any storage or query operations.
 
 ## **Preparation Before Storing**
 **Before each storage operation, it is strongly recommended to first use the `ListUniqueValues` tool to understand the overall state of the knowledge base:**
@@ -395,7 +395,7 @@ class KnowledgeBaseAgent(BaseAgent):
 
         final_system_prompt = system_prompt
 
-        self.messages_filters = [{'from': context.get('base_path'), 'to': ''}, {'from': 'user', 'to': 'root'}]
+        self.messages_filters = [{'from': context.get('base_path'), 'to': ''}, {'from': 'user_name', 'to': 'user'}]
 
         super().__init__(
             tools=tools_to_pass,

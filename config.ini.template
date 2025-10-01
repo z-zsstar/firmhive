@@ -1,0 +1,17 @@
+[common]
+
+active_model = deepseek
+
+[openai]
+
+model = gpt-4o
+api_key = OPENAI
+base_url = 
+temperature = 0.0
+
+[deepseek]
+
+model = deepseek-chat
+api_key = sk-
+base_url = 
+temperature = 0.0

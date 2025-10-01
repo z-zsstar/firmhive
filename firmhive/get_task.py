@@ -21,8 +21,8 @@ T4_WEB_ATTACK_CHAIN = (
 
 T5_COMPREHENSIVE_ANALYSIS = (
     "Perform a comprehensive security analysis of the firmware. The core objective is to identify and report "
-    "complete, viable attack chains from untrusted input points to dangerous operations. The analysis should focus on "
-    "practically exploitable vulnerabilities, not theoretical flaws. The report must cover the following aspects:\n"
+    "complete, viable, and **practically exploitable** attack chains from untrusted input points to dangerous operations. "
+    "The analysis must focus on vulnerabilities with clear evidence of exploitability, not theoretical flaws.\n"
     "1. **Input Point Identification**: Identify all potential sources of untrusted input, including but not limited "
     "to network interfaces (HTTP, API, sockets), IPC, NVRAM/environment variables, etc.\n"
     "2. **Data Flow Tracking**: Trace the propagation paths of untrusted data within the system and analyze whether "
@@ -30,7 +30,7 @@ T5_COMPREHENSIVE_ANALYSIS = (
     "3. **Component Interaction Analysis**: Focus on interactions between components (e.g., `nvram` get/set, IPC "
     "communication) to observe how externally controllable data flows within the system and affects other components.\n"
     "4. **Exploit Chain Evaluation**: For each potential attack chain discovered, evaluate its trigger conditions, "
-    "reproduction steps, and the probability of successful exploitation.\n"
+    "reproduction steps, and the probability of successful exploitation. **A finding is only valid if a complete and verifiable chain is found.**\n"
     "5. **Final Output**: The report should clearly describe the attack paths and security vulnerabilities most likely "
     "to be successfully exploited by an attacker."
 )

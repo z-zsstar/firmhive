@@ -27,7 +27,11 @@ DEFAULT_VERIFICATION_TASK_TEMPLATE = (
     "**Core Principles**:\n"
     "1.  **Evidence-Driven**: All claims in the alert must be verified through the analysis of the provided evidence. Guessing or analyzing unrelated information and files is strictly prohibited.\n"
     "2.  **Logical Review**: Do not just confirm the existence of code; you must understand its execution logic. Carefully check conditional statements, data sanitization, and other factors that determine whether the code path is reachable.\n"
-    "3.  **Assessment**: Evaluate the alert in the context of firmware operation to determine if it constitutes a real, exploitable vulnerability.\n\n"
+    "3.  **Exploitability Verification**: Verify that the vulnerability is **practically exploitable** by confirming:\n"
+    "    - **Input Controllability**: The attacker can control the tainted input.\n"
+    "    - **Path Reachability**: The vulnerable code path is reachable under realistic conditions.\n"
+    "    - **Real Impact**: The sink operation can cause actual security damage.\n"
+    "4.  **Complete Attack Chain**: Verify the **complete propagation path** from the attacker-controlled input to the dangerous sink, with evidence at each step.\n\n"
     "**Note**: Function names in the alert may be from decompilation. Search carefully; do not easily conclude they don't exist just because they are not in the symbol table or strings.\n\n"
     "{verification_finding_details}\n"
 )
@@ -45,19 +49,21 @@ DEFAULT_VERIFICATION_INSTRUCTION_TEMPLATE = (
 SHARED_RESPONSE_FORMAT_BLOCK = """
 Each finding must include the following **core fields**:
 - **`description`**: A detailed description of the finding, which must include:
-* The specific manifestation of the issue and its trigger conditions.
-* The detailed taint propagation path, associated constraints, and details regarding boundary checks.
-* Potential attack vectors and exploitation methods.
+* **Complete & Verifiable Attack Chain**: The specific taint propagation path from an attacker-controllable source to a dangerous sink, supported by evidence at each step.
+* **Precise Trigger Conditions**: Exact conditions required to reach the vulnerable code path.
+* **Exploitability Analysis**: Clear explanation of *why* this is exploitable (e.g., missing sanitization, flawed logic).
 
 - **`link_identifiers`**: Specific NVRAM or ENV variable names, file paths, IPC socket paths, and custom shared function symbols.
 - **`location`**: Precise location of the code sink or key logic. 
-- **`code_snippet`**: Return the complete relevant code snippet.
-- **`risk_score`**: Risk score (0.0-10.0).
-- **`confidence`**: Confidence of analysis in the finding's accuracy and exploitability.  (0.0-10.0).
+- **`code_snippet`**: Return the complete relevant code snippet demonstrating the vulnerability.
+- **`risk_score`**: Risk score (0.0-10.0). **Score >= 7.0 only for findings with a verified, complete attack chain and clear security impact.**
+- **`confidence`**: Confidence of analysis in the finding's accuracy and exploitability.  (0.0-10.0). **Score >= 8.0 requires a complete, verifiable attack chain from source to sink.**
 - **`notes`**: For human analysts. Including: assumptions requiring further verification, associated files or functions, suggested directions for subsequent analysis.
 
-#### Note
-- Strictly prohibit fabricating any information; it must be based on actual evidence obtained by tools. If tools cannot obtain evidence, report it truthfully and explain the lack of information. Strictly prohibit making any unsubstantiated guesses.
+#### Key Principles:
+- **Exploitability is Mandatory**: Only report findings that are practically exploitable. Theoretical weaknesses or bad practices (like using `strcpy`) are insufficient unless you can prove they lead to a vulnerability.
+- **Complete Path Required**: Partial or speculative paths ("might be vulnerable if...") are not acceptable. You must present the full, verified chain.
+- **Evidence Over Speculation**: All claims must be backed by evidence from tools. If evidence is lacking, state it clearly. Do not guess.
 """
 
 DEFAULT_WORKER_EXECUTOR_SYSTEM_PROMPT = f"""
@@ -127,30 +133,24 @@ You are a dedicated file analysis agent. Your task is to deeply analyze the curr
 
 
 DEFAULT_FUNCTION_SYSTEM_PROMPT = """
-You are a specialized function call chain analysis assistant. Your core responsibility is to trace the flow path of tainted data within the current function. Please focus on the current function, and when you believe the analysis is complete or cannot make further progress, continue to the next task or end the task.
+You are a highly specialized firmware binary function call chain analysis assistant. Your task and only task is: starting from the currently specified function, strictly, unidirectionally, forward track the specified taint data until it reaches a sink (dangerous function).
 
-**Working Principles:**
-- All analysis is based on actual evidence; no unsubstantiated guesses are made.
-- When a problem is found, clearly state its location, trigger conditions, and potential impact.
+**Strict Code of Conduct (Must Follow):**
+1. **Absolute Focus**: Your analysis scope is **limited to** the currently specified function and its called subfunctions. **Strictly forbidden** to analyze any other functions or code paths unrelated to the current call chain.
+2. **Unidirectional Tracking**: Your task is **forward tracking**. Once taint enters a subfunction, you must follow it in, **strictly forbidden** to return or perform reverse analysis.
+3. **No Evaluation**: **Strictly forbidden** to provide any form of security assessment, remediation suggestions, or any subjective comments. Your only output is evidence-based, formatted taint paths.
+4. **Complete Path**: You must provide **complete, reproducible** propagation paths from taint source to sink. If path breaks for any reason, must clearly state break location and reason.
 
-**Analysis Workflow:**
-1.  **Focus on Current Function**:
-    *   Analyze the function code, understand its parameters, return values, and how it handles incoming tainted data.
+**Analysis Process:**
+1. **Analyze Current Function**: Use `r2` tool to analyze current function code, understand how taint data (usually in specific registers or memory addresses) is handled and passed.
+2. **Decision: Deep Dive or Record**:
+    * **Deep Dive**: If taint data is clearly passed to a subfunction, briefly preview subfunction logic, and create a new delegation task for subfunction. Task description must include: 1) **Target Function** (provide specific function address from disassembly if possible), 2) **Taint Entry** (which register/memory in subfunction contains taint), 3) **Taint Source** (how taint was produced in parent function), and 4) **Analysis Goal** (tracking requirements for new taint entry).
+    * **Record**: If taint data is passed to a **sink** (like `system`, `sprintf`) and confirmed as dangerous operation (better construct a PoC), record this complete propagation path, this is what you need to report in detail.
+3. **Path Break**: If taint is safely handled (like sanitization, validation) or not passed to any subfunction/sink within current function, terminate current path analysis and report clearly.
 
-2.  **Taint Flow Judgment and Decision**:
-    *   **Does taint flow into a sub-function?**
-        *   **Yes**: Create a delegation task for that sub-function. In the task description, you must clearly specify:
-            1.  **Target Function**: The address of the sub-function to be analyzed.
-            2.  **Tainted Parameters**: Which parameters are tainted.
-            3.  **Taint Transformation**: What processing or transformations the tainted data underwent before being passed.
-        *   **No**: If the tainted data is eliminated in the current function, or not passed to a sub-function, terminate the analysis for this path.
-
-3.  **Analysis Depth Control**:
-    *   When tainted data has undergone sufficient validation and sanitization (e.g., strict boundary checks), tracking can stop.
-    *   For calls to known secure library functions or when encountering complex situations that cannot be analyzed, stop delving deeper and report the current status.
-
-4.  **Summarize Results**:
-    *   After all path analyses are complete, summarize the final results, including the complete taint propagation path and code snippets, and use `finish` to end the task.
+**Final Report Format:**
+* At the end of analysis, you need to present all discovered complete taint propagation paths in a clear tree diagram.
+* Each step **must** follow `'Step_number: address: three to five lines assembly code or pseudocode snippet --> step explanation'` format. **Code snippets must be real, verifiable, and critical to understanding data flow. Strictly forbidden to only provide explanations or conclusions without addresses and code.**
 """
 
 class ExecutorAgent(BaseAgent):
@@ -284,82 +284,34 @@ def create_file_analysis_config(
     include_kb: bool,
     max_iterations: int = 30,
     main_system_prompt: Optional[str] = None, 
-    sub_level_one_system_prompt: Optional[str] = None,
-    sub_level_two_system_prompt: Optional[str] = None, 
-    sub_level_three_system_prompt: Optional[str] = None, 
+    sub_level_system_prompt: Optional[str] = None,
 ) -> AgentConfig:
     """
-    Blueprint for coordinator deep file analysis tasks (4 layers + Knowledge Base Assistant + nested parallel call chain).
-    L0: Planner (delegates)
-    L1: Executor/Delegator (default tools + delegation + hierarchical KB manager if KB is included)
-    L2: Executor/Delegator (default tools + delegation + call chain analysis)
-    L3: Executor (phase-specific tools + call chain analysis)
+    Blueprint for file analysis tasks (2 layers only: one delegation level).
+    L0: Planner (top level, can delegate to L1)
+    L1: Executor (terminal level, cannot delegate further - only has tools and function call chain analysis)
+    
+    This ensures file analysis delegation is strictly one level deep.
     """
     effective_main_prompt = main_system_prompt or DEFAULT_FILE_SYSTEM_PROMPT
-
-    final_sub_level_one_prompt = sub_level_one_system_prompt or DEFAULT_FILE_SYSTEM_PROMPT
-    final_sub_level_two_prompt = sub_level_two_system_prompt or DEFAULT_FILE_SYSTEM_PROMPT
-    final_sub_level_three_prompt = sub_level_three_system_prompt or DEFAULT_FILE_SYSTEM_PROMPT
+    final_sub_level_prompt = sub_level_system_prompt or DEFAULT_FILE_SYSTEM_PROMPT
     
-    base_l3_tools: List[Union[Type[ExecutableTool], ExecutableTool]] = DEFAULT_TOOL_CLASSES.copy()
-
-
+    # Create nested call chain config for function analysis
     nested_call_chain_sub_agent_config = _create_nested_call_chain_config(max_iterations, max_depth=4)
     call_chain_assistant_tool_cfg = AssistantToolConfig(
         assistant_class=ParallelFunctionDelegator, 
         sub_agent_config=nested_call_chain_sub_agent_config,
     )
 
-    l3_tools_with_cca = [*base_l3_tools, call_chain_assistant_tool_cfg]
-    l3_agent_cfg = AgentConfig(
-        agent_class=ExecutorAgent,
-        tool_configs=l3_tools_with_cca, 
-        system_prompt=final_sub_level_three_prompt,
-        max_iterations=max_iterations
-    )
-
-    l2_tool_configs: List[Union[Type[ExecutableTool], AssistantToolConfig]] = [
-        *DEFAULT_TOOL_CLASSES.copy(),
-        # VulnerabilitySearchTool(),
-        call_chain_assistant_tool_cfg, 
-        AssistantToolConfig(
-            assistant_class=BaseAssistant,
-            sub_agent_config=l3_agent_cfg,
-            description="The assistant can interact with files to perform specific file analysis tasks. Use case: When you need analysis results for a single-step task before deciding the next analysis task."
-        ),
-        AssistantToolConfig(
-            assistant_class=ParallelBaseAssistant,
-            sub_agent_config=l3_agent_cfg,
-            description="Each assistant can interact with files, executing multiple file analysis sub-tasks in parallel. Use cases: 1. When a complex task needs to be broken down into multiple independent sub-tasks. 2. Sub-tasks have no strict execution order dependencies. 3. Recommended for large-scale and complex tasks to execute multiple sub-tasks in parallel, improving analysis efficiency."
-        )
-    ]
-    l2_agent_cfg = AgentConfig(
-        agent_class=ExecutorAgent,
-        tool_configs=l2_tool_configs,
-        system_prompt=final_sub_level_two_prompt,
-        max_iterations=max_iterations
-    )
-
+    # L1: Terminal executor - only has tools and function analysis, NO further delegation
     l1_tool_configs: List[Union[Type[ExecutableTool], AssistantToolConfig]] = [
         *DEFAULT_TOOL_CLASSES.copy(),
         call_chain_assistant_tool_cfg,
-        # VulnerabilitySearchTool(),for CVE search
-        AssistantToolConfig(
-            assistant_class=BaseAssistant,
-            sub_agent_config=l2_agent_cfg,
-            description="The assistant can interact with files to perform specific file analysis tasks. Use case: When you need analysis results for a single-step task before deciding the next analysis task."
-        ),
-        AssistantToolConfig(
-            assistant_class=ParallelBaseAssistant,
-            sub_agent_config=l2_agent_cfg,
-            description="Each assistant can interact with files, executing multiple file analysis sub-tasks in parallel. Use cases: 1. When a complex task needs to be broken down into multiple independent sub-tasks. 2. Sub-tasks have no strict execution order dependencies. 3. Recommended for large-scale and complex tasks to execute multiple sub-tasks in parallel, improving analysis efficiency."
-        )
+        # VulnerabilitySearchTool(),  # for CVE search if needed
     ]
 
     if include_kb:
-        kb_config = create_kb_agent_config(
-            max_iterations=max_iterations, 
-        )
+        kb_config = create_kb_agent_config(max_iterations=max_iterations)
         hierarchical_kb_manager_tool_cfg = AssistantToolConfig(
             assistant_class=BaseAssistant, 
             sub_agent_config=kb_config,
@@ -370,11 +322,12 @@ def create_file_analysis_config(
     l1_agent_cfg = AgentConfig(
         agent_class=ExecutorAgent,
         tool_configs=l1_tool_configs,
-        system_prompt=final_sub_level_one_prompt,
+        system_prompt=final_sub_level_prompt,
         max_iterations=max_iterations
     )
     
-    l0_delegators: List[Union[Type[ExecutableTool], AssistantToolConfig]] = [
+    # L0: Top-level planner - can delegate to L1 via BaseAssistant/ParallelBaseAssistant
+    l0_tool_configs: List[Union[Type[ExecutableTool], AssistantToolConfig]] = [
         GetContextInfoTool,
         ShellExecutorTool,
         Radare2Tool,
@@ -390,11 +343,9 @@ def create_file_analysis_config(
         )
     ]
 
-    l0_final_tool_configs: List[Union[Type[ExecutableTool], AssistantToolConfig]] = [*l0_delegators]
-
     file_analyzer_config = AgentConfig(
         agent_class=PlannerAgent,
-        tool_configs=l0_final_tool_configs,
+        tool_configs=l0_tool_configs,
         system_prompt=effective_main_prompt, 
         max_iterations=max_iterations
     )
@@ -789,7 +740,22 @@ class FirmwareMasterAgent:
             print(f"Could not write summary file {summary_path}: {e}")
     
 if __name__ == "__main__":
-    default_user_input = ("Perform a comprehensive security analysis of the firmware. The core objective is to identify and report complete, viable attack chains.")
+    default_user_input = (
+    "Perform a comprehensive security analysis of the firmware. The core objective is to identify and report "
+    "complete, viable, and **practically exploitable** attack chains from untrusted input points to dangerous operations. "
+    "The analysis must focus on vulnerabilities with clear evidence of exploitability, not theoretical flaws.\n"
+    "1. **Input Point Identification**: Identify all potential sources of untrusted input, including but not limited "
+    "to network interfaces (HTTP, API, sockets), IPC, NVRAM/environment variables, etc.\n"
+    "2. **Data Flow Tracking**: Trace the propagation paths of untrusted data within the system and analyze whether "
+    "there are any processes without proper validation, filtering, or boundary checks.\n"
+    "3. **Component Interaction Analysis**: Focus on interactions between components (e.g., `nvram` get/set, IPC "
+    "communication) to observe how externally controllable data flows within the system and affects other components.\n"
+    "4. **Exploit Chain Evaluation**: For each potential attack chain discovered, evaluate its trigger conditions, "
+    "reproduction steps, and the probability of successful exploitation. **A finding is only valid if a complete and verifiable chain is found.**\n"
+    "5. **Final Output**: The report should clearly describe the attack paths and security vulnerabilities most likely "
+    "to be successfully exploited by an attacker."
+)
+
     
     parser = argparse.ArgumentParser(description="Firmware Analysis Master Agent")
     parser.add_argument("--search_dir", type=str, required=True, help="Path to the directory to search for firmware root.")

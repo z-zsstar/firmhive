@@ -1,11 +1,12 @@
+import json
 import traceback
 import threading
-import json
+
 from typing import Optional, List, Type, Union, Any, Dict
 
 from agent.base import BaseAgent
-from agent.tools.basetool import FlexibleContext, ExecutableTool
 from agent.core.builder import AgentConfig, build_agent
+from agent.tools.basetool import FlexibleContext, ExecutableTool
 
 class BaseAssistant(ExecutableTool):
     name = "TaskDelegator"
@@ -19,15 +20,13 @@ class BaseAssistant(ExecutableTool):
         "type": "object",
         "properties": {
             "task": {
-                "type": "object",
-                "properties": {
-                    "task_description": {
-                        "type": "string",
-                        "description": "Detailed description of the subtask to be executed. Please specify the analysis object."
-                    }
-                },
-                "required": ["task_description"],
-                "description": "A task item containing a single task description."
+                "type": "string",
+                "description": "Detailed description of the subtask to be executed. Please specify the analysis object."
+            },
+            "run_in_background": {
+                "type": "boolean",
+                "description": "Whether to run this task in the background.",
+                "default": False
             }
         },
         "required": ["task"]
@@ -65,12 +64,12 @@ class BaseAssistant(ExecutableTool):
         Extract and process the details of a single task from **kwargs of the execute method.
         Subclasses should override this method to extract task details from their specific parameters.
         The returned dict will be passed to _prepare_sub_agent_context and _build_sub_agent_prompt.
-        It must contain at least a 'task_description' key.
+        It must contain at least a 'task' key.
         """
-        task_details_input = kwargs.get("task", {})
-        if not isinstance(task_details_input, dict):
-            return {}
-        return task_details_input
+        task = kwargs.get("task", "")
+        if not isinstance(task, str):
+            return {"task": ""}
+        return {"task": task}
 
     def _prepare_sub_agent_context(self, sub_agent_context: FlexibleContext, **task_details: Any) -> FlexibleContext:
         """
@@ -85,27 +84,32 @@ class BaseAssistant(ExecutableTool):
         Build the full task prompt for the sub-agent.
         It uses the processed task details returned from _get_sub_agent_task_details.
         """
-        task_description = task_details.get("task_description")
+        task = task_details.get("task")
 
         usr_init_msg_content = usr_init_msg if usr_init_msg else "No user initial request provided"
-        task_description_content = task_description if task_description else "No task description provided"
+        task_content = task if task else "No task provided"
 
         return (
             f"User initial request:\n{usr_init_msg_content}\n"
-            f"Current specific task:\n{task_description_content}"
+            f"Current specific task:\n{task_content}"
         )
 
     def execute(self, **kwargs: Any) -> str:
+        # Check if this should run in background
+        run_in_background = kwargs.get("run_in_background", False)
+        if run_in_background:
+            self.is_background_task = True
+        
         usr_init_msg = self.context.get("user_input")
-        task_description_for_error_log: Optional[str] = "Unknown task description"
+        task_for_error_log: Optional[str] = "Unknown task"
 
         try:
             task_details = self._get_sub_agent_task_details(**kwargs)
-            task_description = task_details.get("task_description")
-            task_description_for_error_log = str(task_description) if task_description else "Not extracted"
+            task = task_details.get("task")
+            task_for_error_log = str(task) if task else "Not extracted"
 
-            if not task_description:
-                return "Error: Failed to extract 'task_description' for sub-agent from task input."
+            if not task:
+                return "Error: Failed to extract 'task' for sub-agent from task input."
 
             full_task_prompt = self._build_sub_agent_prompt(usr_init_msg, **task_details)
 
@@ -134,10 +138,10 @@ class BaseAssistant(ExecutableTool):
             return result_from_sub_agent
 
         except Exception as e:
-            error_desc_snippet = task_description_for_error_log[:70]
-            error_message_for_return = f"Error: {self.name} failed to execute subtask (task description snippet: '{error_desc_snippet}'): {type(e).__name__} - {str(e)}"
+            error_snippet = task_for_error_log[:70]
+            error_message_for_return = f"Error: {self.name} failed to execute subtask (task snippet: '{error_snippet}'): {type(e).__name__} - {str(e)}"
 
-            log_error_message = f"Error in {self.name} during sub-task preparation or delegation (task description snippet: '{error_desc_snippet}...'): {type(e).__name__} - {str(e)}"
+            log_error_message = f"Error in {self.name} during sub-task preparation or delegation (task snippet: '{error_snippet}...'): {type(e).__name__} - {str(e)}"
             logger = getattr(self, 'logger', None)
             if logger:
                 logger.error(log_error_message, exc_info=True)
@@ -163,17 +167,15 @@ class ParallelBaseAssistant(ExecutableTool):
             "tasks": {
                 "type": "array",
                 "items": {
-                    "type": "object",
-                    "properties": {
-                        "task_description": {
-                            "type": "string",
-                            "description": "Detailed description of the subtask to be executed. Each subtask description is independent and should specify the analysis object."
-                        }
-                    },
-                    "required": ["task_description"],
-                    "description": "A task item containing a single task description."
+                    "type": "string",
+                    "description": "Detailed description of the subtask to be executed. Each task description is independent and should specify the analysis object."
                 },
-                "description": "A list of independent subtasks to be distributed to sub-agents for execution."
+                "description": "A list of independent task descriptions to be distributed to sub-agents for parallel execution."
+            },
+            "run_in_background": {
+                "type": "boolean",
+                "description": "Whether to run this task in the background.",
+                "default": False
             }
         },
         "required": ["tasks"]
@@ -205,19 +207,22 @@ class ParallelBaseAssistant(ExecutableTool):
         if timeout is not None:
             self.timeout = timeout
 
-    def _extract_task_list(self, **kwargs: Any) -> List[Dict[str, Any]]:
+    def _extract_task_list(self, **kwargs: Any) -> List[str]:
         """
         Extract the list of tasks to be processed in parallel from **kwargs of the execute method.
         Subclasses can override this method to handle different input parameter formats (e.g., 'file_paths' instead of 'tasks').
         """
-        return kwargs.get("tasks", [])
+        tasks = kwargs.get("tasks", [])
+        if not isinstance(tasks, list):
+            return []
+        return [str(task) for task in tasks if task]
 
-    def _get_sub_agent_task_details(self, **task_item: Any) -> Dict[str, Any]:
+    def _get_sub_agent_task_details(self, task: str, **extra: Any) -> Dict[str, Any]:
         """
-        Process a single parallel task item to create a task details dict to be passed to other methods.
-        The default implementation assumes task_item itself is the task details dict to use.
+        Process a single parallel task string to create a task details dict to be passed to other methods.
+        The default implementation wraps the task string in a dict with 'task' key.
         """
-        return task_item
+        return {"task": task}
 
     def _prepare_sub_agent_context(self, sub_agent_context: FlexibleContext, **task_details: Any) -> FlexibleContext:
         """
@@ -231,27 +236,31 @@ class ParallelBaseAssistant(ExecutableTool):
         """
         Build the full task prompt for the sub-agent to be executed in parallel.
         """
-        task_description = task_details.get("task_description")
+        task = task_details.get("task")
 
         usr_init_msg_content = usr_init_msg if usr_init_msg else "No user initial request provided"
-        task_description_content = task_description if task_description else "No task description provided"
+        task_content = task if task else "No task provided"
 
         return (
             f"User initial request:\n{usr_init_msg_content}\n\n"
-            f"Current specific task:\n{task_description_content}"
+            f"Current specific task:\n{task_content}"
         )
 
-    def _execute_single_task_in_thread(self, task_item: Dict[str, Any], task_index: int, results_list: list):
+    def _execute_single_task_in_thread(self, task: Union[str, Dict[str, Any]], task_index: int, results_list: list):
         usr_init_msg = self.context.get("user_input")
-        task_description_for_error_log: Optional[str] = f"Task #{task_index + 1} unknown description"
+        task_for_error_log: Optional[str] = f"Task #{task_index + 1} unknown"
 
         try:
-            task_details = self._get_sub_agent_task_details(**task_item)
-            task_description = task_details.get("task_description")
-            task_description_for_error_log = str(task_description) if task_description else f"Task #{task_index + 1} failed to extract description"
+            # Handle both string tasks and dict tasks
+            if isinstance(task, dict):
+                task_details = self._get_sub_agent_task_details(**task)
+            else:
+                task_details = self._get_sub_agent_task_details(task=task)
+            task_str = task_details.get("task")
+            task_for_error_log = str(task_str) if task_str else f"Task #{task_index + 1} failed to extract"
 
-            if not task_description:
-                error_message = f"Error: Failed to extract 'task_description' for sub-agent in parallel task list item #{task_index + 1}."
+            if not task_str:
+                error_message = f"Error: Failed to extract 'task' for sub-agent in parallel task list item #{task_index + 1}."
                 logger = getattr(self, 'logger', None)
                 if logger: logger.error(error_message)
                 else: print(error_message)
@@ -295,11 +304,11 @@ class ParallelBaseAssistant(ExecutableTool):
             results_list[task_index] = result
 
         except Exception as e:
-            error_desc_snippet = str(task_description_for_error_log)[:50]
+            error_snippet = str(task_for_error_log)[:50]
             error_string_for_result = f"Error: Parallel subtask #{task_index + 1} of {self.name} failed ({type(e).__name__}): {str(e)}"
             results_list[task_index] = error_string_for_result
 
-            log_error_message = f"Error in {self.name} during parallel sub-task #{task_index + 1} (desc snippet: '{error_desc_snippet}...'): {type(e).__name__} - {str(e)}"
+            log_error_message = f"Error in {self.name} during parallel sub-task #{task_index + 1} (snippet: '{error_snippet}...'): {type(e).__name__} - {str(e)}"
             logger = getattr(self, 'logger', None)
             if logger:
                 logger.error(log_error_message, exc_info=True)
@@ -307,6 +316,11 @@ class ParallelBaseAssistant(ExecutableTool):
                 print(f"ERROR in {self.name} (task #{task_index+1}): {log_error_message}")
 
     def execute(self, **kwargs: Any) -> str:
+        # Check if this should run in background
+        run_in_background = kwargs.get("run_in_background", False)
+        if run_in_background:
+            self.is_background_task = True
+        
         tasks = self._extract_task_list(**kwargs)
 
         if not tasks:
@@ -315,10 +329,10 @@ class ParallelBaseAssistant(ExecutableTool):
         threads = []
         results_list = [None] * len(tasks)
 
-        for i, task_item in enumerate(tasks):
+        for i, task in enumerate(tasks):
             thread = threading.Thread(
                 target=self._execute_single_task_in_thread,
-                args=(task_item, i, results_list),
+                args=(task, i, results_list),
                 name=f"SubAgent-{self.name}-{i+1}"
             )
             threads.append(thread)
@@ -328,16 +342,11 @@ class ParallelBaseAssistant(ExecutableTool):
             thread.join()
 
         final_results_for_json = []
-        for i, original_task_config in enumerate(tasks):
-            original_td = "Original task description unknown"
-            if isinstance(original_task_config, dict):
-                extracted_details = self._get_sub_agent_task_details(**original_task_config)
-                original_td = extracted_details.get("task_description", "Failed to extract original task description")
-
+        for i, original_task in enumerate(tasks):
             task_result_or_error = results_list[i]
 
             task_entry = {
-                "task_description": original_td
+                "task": original_task
             }
 
             if task_result_or_error is None:

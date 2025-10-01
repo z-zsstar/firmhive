@@ -144,7 +144,7 @@ To accelerate analysis, FirmHive supports delegating tasks to **background jobs*
 - Results are collected and integrated asynchronously
 - Reduces sequential waiting time and is crucial for analyzing large directories.
 
-**⚠️ Experimental Feature**: This asynchronous mechanism has not been exhaustively tested. For maximum stability, you can disable it by setting `run_in_background: false`. If you encounter hangs, this is the first thing to check.
+**⚠️ Experimental Feature**: This asynchronous mechanism has not been exhaustively tested. For maximum stability, you can disable it. If you encounter hangs, this is the first thing to check.
 
 ### Knowledge Hub
 

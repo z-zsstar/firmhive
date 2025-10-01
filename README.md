@@ -1,7 +1,5 @@
 # HiveMind (FirmHive Implementation)
 
-This repository contains the official implementation of **FirmHive**, the prototype system for our paper **"HiveMind: Enabling Emergent Workflows for Deep Firmware Security Analysis"**.
-
 ## Overview
 
 **FirmHive** is an automated firmware vulnerability analysis system powered by LLM agents. It employs a hierarchical multi-agent architecture to systematically analyze firmware images, identify security vulnerabilities, and generate detailed, verified reports. It is the practical implementation of the HiveMind architecture described in our paper.
@@ -13,22 +11,6 @@ This repository contains the official implementation of **FirmHive**, the protot
 - ✅ **Two-Phase Analysis (Explore & Verify)**: A workflow that first explores the firmware to find a wide range of potential vulnerabilities and then launches a second, focused verification phase to filter out false positives and confirm findings.
 - 🔧 **Customizable Analysis Blueprints**: The analysis strategy is not hardcoded. You can define your own hierarchical workflow, agent types, tools, and prompts in `firmhive/blueprint.py`.
 - 🤖 **Specialized Agents**: A suite of agents in `firmhive/assitants.py` designed for specific tasks like directory traversal, file analysis, and deep binary function tracing.
-
-## Performance Highlights
-
-As demonstrated in the paper, HiveMind's architecture allows it to significantly outperform both traditional security tools and other LLM-based agent frameworks.
-
-- **Superior Vulnerability Detection**: HiveMind identified **4,571** initial security alerts, compared to 2,310 from Mango and 144 from SaTC.
-- **High-Precision Verification**: After its autonomous verification phase, HiveMind produced **1,612** high-confidence, validated vulnerabilities with a precision of **80.5%**.
-- **Broader Scope**: Unlike tools that focus only on binary analysis (like CI/BOF), HiveMind's comprehensive approach uncovered 2,361 non-binary alerts (e.g., XSS, auth bypass) and 259 other binary alerts (e.g., hardcoded credentials) that were missed by others.
-
-| Dimension | Mango [11] | SaTC [3] | **HiveMind (Ours)** |
-| :--- | :--- | :--- | :--- |
-| **Paradigm** | Expert-Driven | Expert-Driven | LLM-Driven |
-| **Workflow** | Exploration Only | Exploration Only | **Explore & Verify** |
-| **Initial Alerts** | 2,310 | 144 | **4,571** |
-| **Verified Alerts** | N/A | N/A | **1,612** |
-| **Precision** | 47.9% | N/A | **80.5%** |
 
 ## Project Structure
 

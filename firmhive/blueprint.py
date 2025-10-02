@@ -284,81 +284,34 @@ def create_file_analysis_config(
     include_kb: bool,
     max_iterations: int = 30,
     main_system_prompt: Optional[str] = None, 
-    sub_level_one_system_prompt: Optional[str] = None,
-    sub_level_two_system_prompt: Optional[str] = None, 
-    sub_level_three_system_prompt: Optional[str] = None, 
+    sub_level_system_prompt: Optional[str] = None,
 ) -> AgentConfig:
     """
-    Blueprint for coordinator deep file analysis tasks (4 layers + Knowledge Base Assistant + nested parallel call chain).
-    L0: Planner (delegates)
-    L1: Executor/Delegator (default tools + delegation + hierarchical KB manager if KB is included)
-    L2: Executor/Delegator (default tools + delegation + call chain analysis)
-    L3: Executor (phase-specific tools + call chain analysis)
+    Blueprint for file analysis tasks (2 layers only: one delegation level).
+    L0: Planner (top level, can delegate to L1)
+    L1: Executor (terminal level, cannot delegate further - only has tools and function call chain analysis)
+    
+    This ensures file analysis delegation is strictly one level deep.
     """
     effective_main_prompt = main_system_prompt or DEFAULT_FILE_SYSTEM_PROMPT
-
-    final_sub_level_one_prompt = sub_level_one_system_prompt or DEFAULT_FILE_SYSTEM_PROMPT
-    final_sub_level_two_prompt = sub_level_two_system_prompt or DEFAULT_FILE_SYSTEM_PROMPT
-    final_sub_level_three_prompt = sub_level_three_system_prompt or DEFAULT_FILE_SYSTEM_PROMPT
+    final_sub_level_prompt = sub_level_system_prompt or DEFAULT_FILE_SYSTEM_PROMPT
     
-    base_l3_tools: List[Union[Type[ExecutableTool], ExecutableTool]] = DEFAULT_TOOL_CLASSES.copy()
-
-
+    # Create nested call chain config for function analysis
     nested_call_chain_sub_agent_config = _create_nested_call_chain_config(max_iterations, max_depth=4)
     call_chain_assistant_tool_cfg = AssistantToolConfig(
         assistant_class=ParallelFunctionDelegator, 
         sub_agent_config=nested_call_chain_sub_agent_config,
     )
 
-    l3_tools_with_cca = [*base_l3_tools, call_chain_assistant_tool_cfg]
-    l3_agent_cfg = AgentConfig(
-        agent_class=ExecutorAgent,
-        tool_configs=l3_tools_with_cca, 
-        system_prompt=final_sub_level_three_prompt,
-        max_iterations=max_iterations
-    )
-
-    l2_tool_configs: List[Union[Type[ExecutableTool], AssistantToolConfig]] = [
-        *DEFAULT_TOOL_CLASSES.copy(),
-        # VulnerabilitySearchTool(),
-        call_chain_assistant_tool_cfg, 
-        AssistantToolConfig(
-            assistant_class=BaseAssistant,
-            sub_agent_config=l3_agent_cfg,
-            description="The assistant can interact with files to perform specific file analysis tasks. Use case: When you need analysis results for a single-step task before deciding the next analysis task."
-        ),
-        AssistantToolConfig(
-            assistant_class=ParallelBaseAssistant,
-            sub_agent_config=l3_agent_cfg,
-            description="Each assistant can interact with files, executing multiple file analysis sub-tasks in parallel. Use cases: 1. When a complex task needs to be broken down into multiple independent sub-tasks. 2. Sub-tasks have no strict execution order dependencies. 3. Recommended for large-scale and complex tasks to execute multiple sub-tasks in parallel, improving analysis efficiency."
-        )
-    ]
-    l2_agent_cfg = AgentConfig(
-        agent_class=ExecutorAgent,
-        tool_configs=l2_tool_configs,
-        system_prompt=final_sub_level_two_prompt,
-        max_iterations=max_iterations
-    )
-
+    # L1: Terminal executor - only has tools and function analysis, NO further delegation
     l1_tool_configs: List[Union[Type[ExecutableTool], AssistantToolConfig]] = [
         *DEFAULT_TOOL_CLASSES.copy(),
-        # VulnerabilitySearchTool(),for CVE search
-        AssistantToolConfig(
-            assistant_class=BaseAssistant,
-            sub_agent_config=l2_agent_cfg,
-            description="The assistant can interact with files to perform specific file analysis tasks. Use case: When you need analysis results for a single-step task before deciding the next analysis task."
-        ),
-        AssistantToolConfig(
-            assistant_class=ParallelBaseAssistant,
-            sub_agent_config=l2_agent_cfg,
-            description="Each assistant can interact with files, executing multiple file analysis sub-tasks in parallel. Use cases: 1. When a complex task needs to be broken down into multiple independent sub-tasks. 2. Sub-tasks have no strict execution order dependencies. 3. Recommended for large-scale and complex tasks to execute multiple sub-tasks in parallel, improving analysis efficiency."
-        )
+        call_chain_assistant_tool_cfg,
+        # VulnerabilitySearchTool(),  # for CVE search if needed
     ]
 
     if include_kb:
-        kb_config = create_kb_agent_config(
-            max_iterations=max_iterations, 
-        )
+        kb_config = create_kb_agent_config(max_iterations=max_iterations)
         hierarchical_kb_manager_tool_cfg = AssistantToolConfig(
             assistant_class=BaseAssistant, 
             sub_agent_config=kb_config,
@@ -369,11 +322,12 @@ def create_file_analysis_config(
     l1_agent_cfg = AgentConfig(
         agent_class=ExecutorAgent,
         tool_configs=l1_tool_configs,
-        system_prompt=final_sub_level_one_prompt,
+        system_prompt=final_sub_level_prompt,
         max_iterations=max_iterations
     )
     
-    l0_delegators: List[Union[Type[ExecutableTool], AssistantToolConfig]] = [
+    # L0: Top-level planner - can delegate to L1 via BaseAssistant/ParallelBaseAssistant
+    l0_tool_configs: List[Union[Type[ExecutableTool], AssistantToolConfig]] = [
         GetContextInfoTool,
         ShellExecutorTool,
         Radare2Tool,
@@ -389,16 +343,13 @@ def create_file_analysis_config(
         )
     ]
 
-    l0_final_tool_configs: List[Union[Type[ExecutableTool], AssistantToolConfig]] = [*l0_delegators]
-
     file_analyzer_config = AgentConfig(
         agent_class=PlannerAgent,
-        tool_configs=l0_final_tool_configs,
+        tool_configs=l0_tool_configs,
         system_prompt=effective_main_prompt, 
         max_iterations=max_iterations
     )
     return file_analyzer_config
-
 
 def create_firmware_analysis_blueprint(
     include_kb: bool = True,

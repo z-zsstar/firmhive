@@ -1,0 +1,5 @@
+Analysis and Verification Summary
+Analysis Phase Duration: 0.00 seconds
+Verification Phase Duration: 840.51 seconds
+Total Duration: 840.51 seconds
+Total Model Token Usage: 11122620

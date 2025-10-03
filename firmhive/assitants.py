@@ -8,7 +8,7 @@ from agent.core.assitants import BaseAssistant, ParallelBaseAssistant
 class ParallelFunctionDelegator(ParallelBaseAssistant):
     name = "FunctionDelegator"
     description = """
-    Function Analysis Delegator - An agent specialized in analyzing function call chains in binary files. Its responsibility is to forward-track the flow of tainted data between function calls. You can delegate potential external entry points to this agent for in-depth tracing.
+    函数分析委托器 - 专门分析二进制文件中函数调用链的代理。它的职责是正向追踪函数调用之间的污点数据流。你可以将潜在的外部入口点委托给此代理进行深入追踪。
     """
 
     parameters = {
@@ -22,30 +22,30 @@ class ParallelFunctionDelegator(ParallelBaseAssistant):
                         "task": {
                             "type": "string", 
                             "description": (
-                                "When creating an analysis task for a sub-function, your description must clearly include the following four points:\n"
-                                "1. **Target Function**: The name and address of the sub-function to analyze.\n"
-                                "2. **Taint Entry**: The specific register or stack address where the taint is located in the sub-function (e.g., 'The taint is in the first parameter register r0').\n"
-                                "3. **Taint Source**: How this tainted data was produced in the parent function (e.g., 'This value was obtained by the parent function main via calling nvram_get(\"lan_ipaddr\")').\n"
-                                "4. **Analysis Objective**: Clearly indicate that the new task should trace this new taint entry (e.g., 'Trace r0 within the sub-function')."
+                                "为子函数创建分析任务时，你的描述必须清楚地包括以下四点：\n"
+                                "1. **目标函数**：要分析的子函数的名称和地址。\n"
+                                "2. **污点入口**：污点在子函数中所在的特定寄存器或栈地址（例如，'污点在第一个参数寄存器 r0 中'）。\n"
+                                "3. **污点来源**：这个污点数据在父函数中是如何产生的（例如，'这个值是父函数 main 通过调用 nvram_get(\"lan_ipaddr\") 获取的'）。\n"
+                                "4. **分析目标**：清楚地指出新任务应该追踪这个新的污点入口（例如，'在子函数内追踪 r0'）。"
                             )
                         },
                         "task_context": {
                             "type": "string", 
                             "description": (
-                                "(Optional) Provide supplementary context that may affect the analysis. This information is not part of the taint flow itself, but may influence the execution path of the sub-function. For example:\n"
-                                "- 'The value of register r2 at this point is 0x100, representing the maximum buffer length.'\n"
-                                "- 'The global variable `is_admin` was set to 1 before this call.'\n"
-                                "- 'Assume the file has been successfully opened during analysis.'"
+                                "（可选）提供可能影响分析的补充上下文。这些信息不是污点流本身的一部分，但可能影响子函数的执行路径。例如：\n"
+                                "- '此时寄存器 r2 的值为 0x100，表示最大缓冲区长度。'\n"
+                                "- '在此调用之前，全局变量 `is_admin` 被设置为 1。'\n"
+                                "- '在分析期间假设文件已成功打开。'"
                             )
                         }
                     },
                     "required": ["task"]
                 },
-                "description": "A list of function analysis tasks to be performed."
+                "description": "要执行的函数分析任务列表。"
             },
             "run_in_background": {
                 "type": "boolean",
-                "description": "Whether to run this task in the background.",
+                "description": "是否在后台运行此任务。",
                 "default": False
             }
         },
@@ -88,16 +88,16 @@ class ParallelFunctionDelegator(ParallelBaseAssistant):
         task = task_details.get("task")
         task_context = task_details.get("task_context")
 
-        usr_init_msg_content = usr_init_msg if usr_init_msg else "No user initial request provided"
-        task_content = task if task else "No task provided"
+        usr_init_msg_content = usr_init_msg if usr_init_msg else "未提供用户初始请求"
+        task_content = task if task else "未提供任务"
 
         prompt_parts = [
-            f"User core request:\n{usr_init_msg_content}",
-            f"Current specific task:\n{task_content}"
+            f"用户核心请求：\n{usr_init_msg_content}",
+            f"当前具体任务：\n{task_content}"
         ]
 
         if task_context:
-            prompt_parts.append(f"Supplementary context:\n{task_context}")
+            prompt_parts.append(f"补充上下文：\n{task_context}")
 
         return "\n\n".join(prompt_parts)
     
@@ -111,26 +111,26 @@ class ParallelFunctionDelegator(ParallelBaseAssistant):
 class DeepFileAnalysisAssistant(BaseAssistant):
     name = "DeepFileAnalysisAssistant"
     description = """
-    Agent for deep analysis of a specified file within your current directory scope.
-    Can only analyze files in the current directory or its subdirectories (any depth).
-    Use simple relative paths like 'config.php' or 'subdir/file.txt' for files in your scope.
-    Suitable for deep analysis tasks of a single file. You can decide the next analysis task after observing the result of a single step. For targeted analysis such as verification tasks, it is highly recommended to use this agent.
+    用于对当前目录范围内指定文件进行深度分析的代理。
+    只能分析当前目录或其子目录（任意深度）中的文件。
+    对于你作用域内的文件，使用简单的相对路径，如 'config.php' 或 'subdir/file.txt'。
+    适用于单个文件的深度分析任务。你可以在观察单步结果后决定下一个分析任务。对于验证任务等有针对性的分析，强烈建议使用此代理。
     """
     parameters = {
         "type": "object",
         "properties": {
             "file_name": {
                 "type": "string",
-                "description": "The file path relative to your current directory (e.g., 'config.php', 'hnap/Login.xml'). You can only access files in your current directory or its subdirectories."
+                "description": "相对于你当前目录的文件路径（例如，'config.php'、'hnap/Login.xml'）。你只能访问当前目录或其子目录中的文件。"
             },
             "run_in_background": {
                 "type": "boolean",
-                "description": "Whether to run this task in the background.",
+                "description": "是否在后台运行此任务。",
                 "default": False
             }
         },
         "required": ["file_name"],
-        "description": "Object containing the file analysis target. Use paths relative to your current working directory."
+        "description": "包含文件分析目标的对象。使用相对于当前工作目录的路径。"
     }
     timeout = 7200  
 
@@ -162,10 +162,10 @@ class DeepFileAnalysisAssistant(BaseAssistant):
     def _get_sub_agent_task_details(self, **kwargs: Any) -> Dict[str, Any]:
         file_name = kwargs.get("file_name")
         if not file_name or not isinstance(file_name, str):
-            return {"task": "Error: A valid file name is required for analysis."}
+            return {"task": "错误：分析需要一个有效的文件名。"}
         
         return {
-            "task": f"Focus on analyzing the content of file '{file_name}' and look for exploitable information.",
+            "task": f"专注于分析文件 '{file_name}' 的内容，寻找可利用的信息。",
             "file_name": file_name
         }
 
@@ -173,17 +173,17 @@ class DeepFileAnalysisAssistant(BaseAssistant):
         file_name = task_details.get("file_name")
 
         if not file_name or not isinstance(file_name, str):
-            raise ValueError("Error: A valid file path is required for analysis.")
+            raise ValueError("错误：分析需要一个有效的文件路径。")
         
         file_name = file_name.lstrip('/')
 
         firmware_root = self.context.get("base_path")
         if not firmware_root or not os.path.isdir(firmware_root):
-            raise ValueError("Missing valid firmware root directory 'base_path' in context, cannot resolve path.")
+            raise ValueError("上下文中缺少有效的固件根目录 'base_path'，无法解析路径。")
 
         scope_dir = self.context.get("current_dir")
         if not scope_dir or not os.path.isdir(scope_dir):
-            raise ValueError("Missing valid working directory 'current_dir' in context, cannot perform scope check.")
+            raise ValueError("上下文中缺少有效的工作目录 'current_dir'，无法执行范围检查。")
 
         resolved_path_from_current = os.path.normpath(os.path.join(scope_dir, file_name))
         resolved_path_from_root = os.path.normpath(os.path.join(firmware_root, file_name))
@@ -201,10 +201,10 @@ class DeepFileAnalysisAssistant(BaseAssistant):
         try:
             real_resolved_path = os.path.realpath(resolved_path)
         except FileNotFoundError:
-             raise ValueError(f"File '{file_name}' not found in firmware.")
+             raise ValueError(f"在固件中未找到文件 '{file_name}'。")
 
         if not os.path.commonpath([real_resolved_path, real_firmware_root]) == real_firmware_root:
-            raise ValueError(f"The provided path '{file_name}' is invalid, may contain '..' or point outside the firmware root directory.")
+            raise ValueError(f"提供的路径 '{file_name}' 无效，可能包含 '..' 或指向固件根目录之外。")
 
         if not os.path.commonpath([real_resolved_path, real_scope_dir]) == real_scope_dir:
             current_dir_name = os.path.relpath(scope_dir, firmware_root)
@@ -214,20 +214,20 @@ class DeepFileAnalysisAssistant(BaseAssistant):
             
             if os.path.exists(potential_full_path) and os.path.isfile(potential_full_path):
                 raise ValueError(
-                    f"Path format error: You provided '{file_name}', but you must use the COMPLETE path relative to firmware root. "
-                    f"You are in directory '{current_dir_name}'. To analyze file '{basename_only}' in this directory, "
-                    f"use the full path: '{potential_correct_path}' (not just '{basename_only}')."
+                    f"路径格式错误：你提供了 '{file_name}'，但必须使用相对于固件根目录的完整路径。"
+                    f"你在目录 '{current_dir_name}' 中。要分析此目录中的文件 '{basename_only}'，"
+                    f"请使用完整路径：'{potential_correct_path}'（而不是仅 '{basename_only}'）。"
                 )
             else:
                 raise ValueError(
-                    f"Access denied: File '{file_name}' is not within your current working directory '{current_dir_name}'. "
-                    f"You are strictly restricted to analyzing files within '{current_dir_name}' only. "
-                    f"Cross-directory analysis is not allowed. If you need to analyze files in other directories, "
-                    f"report this limitation and suggest that a different agent with appropriate scope should handle it."
+                    f"访问被拒绝：文件 '{file_name}' 不在你的当前工作目录 '{current_dir_name}' 中。"
+                    f"你严格限制在 '{current_dir_name}' 内分析文件。"
+                    f"不允许跨目录分析。如果需要分析其他目录中的文件，"
+                    f"请报告此限制并建议由具有适当范围的其他代理处理。"
                 )
 
         if not os.path.isfile(resolved_path):
-            raise ValueError(f"The specified path '{file_name}' is not a valid file.")
+            raise ValueError(f"指定的路径 '{file_name}' 不是有效的文件。")
 
         sub_agent_context.set("file_path", resolved_path)
         sub_agent_context.set("file_name", os.path.basename(resolved_path))
@@ -237,37 +237,37 @@ class DeepFileAnalysisAssistant(BaseAssistant):
     def _build_sub_agent_prompt(self, usr_init_msg: Optional[str], **task_details: Any) -> str:
         task = task_details.get("task", "No file analysis task provided.")
         
-        usr_init_msg_content = usr_init_msg if usr_init_msg else "No user initial request provided"
+        usr_init_msg_content = usr_init_msg if usr_init_msg else "未提供用户初始请求"
         
         return (
-            f"User initial request:\n{usr_init_msg_content}\n\n"
-            f"Current task:\n{task}"
+            f"用户初始请求：\n{usr_init_msg_content}\n\n"
+            f"当前任务：\n{task}"
         )
 
 
 class DeepDirectoryAnalysisAssistant(BaseAssistant):
     name = "DeepDirectoryAnalysisAssistant"
     description = """
-    Agent for deep analysis of a specified subdirectory within your current directory scope.
-    Can only analyze subdirectories in the current directory (direct children or deeper nested directories).
-    Use simple relative paths like 'hnap' or 'subdir/nested' for directories in your scope.
-    Suitable for deep analysis tasks of a single subdirectory. You can decide the next analysis task after observing the result of a single step. For targeted analysis such as verification tasks, it is highly recommended to use this agent.
+    用于对当前目录范围内指定子目录进行深度分析的代理。
+    只能分析当前目录中的子目录（直接子目录或更深层的嵌套目录）。
+    对于你作用域内的目录，使用简单的相对路径，如 'hnap' 或 'subdir/nested'。
+    适用于单个子目录的深度分析任务。你可以在观察单步结果后决定下一个分析任务。对于验证任务等有针对性的分析，强烈建议使用此代理。
     """
     parameters = {
         "type": "object",
         "properties": {
             "dir_name": {
                 "type": "string",
-                "description": "The directory path relative to your current directory (e.g., 'hnap', 'init.d'). You can only access subdirectories within your current directory scope."
+                "description": "相对于你当前目录的目录路径（例如，'hnap'、'init.d'）。你只能访问当前目录范围内的子目录。"
             },
             "run_in_background": {
                 "type": "boolean",
-                "description": "Whether to run this task in the background.",
+                "description": "是否在后台运行此任务。",
                 "default": False
             }
         },
         "required": ["dir_name"],
-        "description": "Object containing the directory analysis target. Use paths relative to your current working directory."
+        "description": "包含目录分析目标的对象。使用相对于当前工作目录的路径。"
     }
     timeout = 9600
 
@@ -299,10 +299,10 @@ class DeepDirectoryAnalysisAssistant(BaseAssistant):
     def _get_sub_agent_task_details(self, **kwargs: Any) -> Dict[str, Any]:
         dir_name = kwargs.get("dir_name")
         if not dir_name or not isinstance(dir_name, str):
-            return {"task": "Error: A valid directory name is required for analysis."}
+            return {"task": "错误：分析需要一个有效的目录名。"}
         
         return {
-            "task": f"Focus on analyzing the content of directory '{dir_name}' and look for exploitable information and clues.",
+            "task": f"专注于分析目录 '{dir_name}' 的内容，寻找可利用的信息和线索。",
             "dir_name": dir_name
         }
 
@@ -310,17 +310,17 @@ class DeepDirectoryAnalysisAssistant(BaseAssistant):
         dir_name = task_details.get("dir_name")
 
         if not dir_name or not isinstance(dir_name, str):
-            raise ValueError("Error: A valid directory path is required for analysis.")
+            raise ValueError("错误：分析需要一个有效的目录路径。")
 
         dir_name = dir_name.lstrip('/')
 
         firmware_root = self.context.get("base_path")
         if not firmware_root or not os.path.isdir(firmware_root):
-            raise ValueError("Missing valid firmware root directory 'base_path' in context, cannot resolve path.")
+            raise ValueError("上下文中缺少有效的固件根目录 'base_path'，无法解析路径。")
 
         scope_dir = self.context.get("current_dir")
         if not scope_dir or not os.path.isdir(scope_dir):
-            raise ValueError("Missing valid working directory 'current_dir' in context, cannot perform scope check.")
+            raise ValueError("上下文中缺少有效的工作目录 'current_dir'，无法执行范围检查。")
 
         resolved_path_from_current = os.path.normpath(os.path.join(scope_dir, dir_name))
         resolved_path_from_root = os.path.normpath(os.path.join(firmware_root, dir_name))
@@ -337,10 +337,10 @@ class DeepDirectoryAnalysisAssistant(BaseAssistant):
         try:
             real_resolved_path = os.path.realpath(resolved_path)
         except FileNotFoundError:
-            raise ValueError(f"Directory '{dir_name}' not found in firmware.")
+            raise ValueError(f"在固件中未找到目录 '{dir_name}'。")
 
         if not os.path.commonpath([real_resolved_path, real_firmware_root]) == real_firmware_root:
-            raise ValueError(f"The provided path '{dir_name}' is invalid, may contain '..' or point outside the firmware root directory.")
+            raise ValueError(f"提供的路径 '{dir_name}' 无效，可能包含 '..' 或指向固件根目录之外。")
 
         if not os.path.commonpath([real_resolved_path, real_scope_dir]) == real_scope_dir:
             current_dir_name = os.path.relpath(scope_dir, firmware_root)
@@ -350,20 +350,20 @@ class DeepDirectoryAnalysisAssistant(BaseAssistant):
             
             if os.path.exists(potential_full_path) and os.path.isdir(potential_full_path):
                 raise ValueError(
-                    f"Path format error: You provided '{dir_name}', but you must use the COMPLETE path relative to firmware root. "
-                    f"You are in directory '{current_dir_name}'. To analyze its subdirectory '{basename_only}', "
-                    f"use the full path: '{potential_correct_path}' (not just '{basename_only}')."
+                    f"路径格式错误：你提供了 '{dir_name}'，但必须使用相对于固件根目录的完整路径。"
+                    f"你在目录 '{current_dir_name}' 中。要分析其子目录 '{basename_only}'，"
+                    f"请使用完整路径：'{potential_correct_path}'（而不是仅 '{basename_only}'）。"
                 )
             else:
                 raise ValueError(
-                    f"Access denied: Directory '{dir_name}' is not within your current working directory '{current_dir_name}'. "
-                    f"You are strictly restricted to analyzing subdirectories within '{current_dir_name}' only. "
-                    f"Cross-directory and upward directory analysis is not allowed. If you need to analyze other directories, "
-                    f"report this limitation and suggest that a different agent with appropriate scope should handle it."
+                    f"访问被拒绝：目录 '{dir_name}' 不在你的当前工作目录 '{current_dir_name}' 中。"
+                    f"你严格限制在 '{current_dir_name}' 内分析子目录。"
+                    f"不允许跨目录和向上目录分析。如果需要分析其他目录，"
+                    f"请报告此限制并建议由具有适当范围的其他代理处理。"
                 )
 
         if not os.path.isdir(resolved_path):
-            raise ValueError(f"The specified path '{dir_name}' is not a valid directory.")
+            raise ValueError(f"指定的路径 '{dir_name}' 不是有效的目录。")
 
         sub_agent_context.set("current_dir", resolved_path)
         sub_agent_context.set("file_path", None)
@@ -372,21 +372,21 @@ class DeepDirectoryAnalysisAssistant(BaseAssistant):
     def _build_sub_agent_prompt(self, usr_init_msg: Optional[str], **task_details: Any) -> str:
         task = task_details.get("task", "No directory analysis task provided.")
         
-        usr_init_msg_content = usr_init_msg if usr_init_msg else "No user initial request provided"
+        usr_init_msg_content = usr_init_msg if usr_init_msg else "未提供用户初始请求"
         
         return (
-            f"User initial request:\n{usr_init_msg_content}\n\n"
-            f"Current task:\n{task}"
+            f"用户初始请求：\n{usr_init_msg_content}\n\n"
+            f"当前任务：\n{task}"
         )
 
 
 class ParallelDeepFileAnalysisDelegator(ParallelBaseAssistant):
     name = "ParallelDeepFileAnalysisDelegator"
     description = """
-    Deep file analysis delegator - distributes analysis tasks for multiple files within your current directory scope to sub-agents for parallel processing.
-    Can only analyze files in the current directory or its subdirectories (any depth).
-    Use simple relative paths for files in your scope.
-    Suitable for deep analysis tasks of multiple files at the same time. For complex tasks or comprehensive analysis, it is highly recommended to use this delegator.
+    深度文件分析委托器 - 将当前目录范围内多个文件的分析任务分配给子代理并行处理。
+    只能分析当前目录或其子目录（任意深度）中的文件。
+    对于你作用域内的文件，使用简单的相对路径。
+    适用于同时对多个文件进行深度分析的任务。对于复杂任务或全面分析，强烈建议使用此委托器。
     """
     parameters = {
         "type": "object",
@@ -395,18 +395,18 @@ class ParallelDeepFileAnalysisDelegator(ParallelBaseAssistant):
                 "type": "array",
                 "items": {
                     "type": "string",
-                    "description": "The file path relative to your current directory (e.g., 'config.php', 'hnap/Login.xml'). You can only access files in your current directory or its subdirectories."
+                    "description": "相对于你当前目录的文件路径（例如，'config.php'、'hnap/Login.xml'）。你只能访问当前目录或其子目录中的文件。"
                 },
-                "description": "List of file paths to be analyzed in parallel. Use paths relative to your current working directory."
+                "description": "要并行分析的文件路径列表。使用相对于当前工作目录的路径。"
             },
             "run_in_background": {
                 "type": "boolean",
-                "description": "Whether to run this task in the background.",
+                "description": "是否在后台运行此任务。",
                 "default": False
             }
         },
         "required": ["file_names"],
-        "description": "Object containing the list of file analysis targets within your current directory scope."
+        "description": "包含当前目录范围内文件分析目标列表的对象。"
     }
     timeout = 9600
 
@@ -442,10 +442,10 @@ class ParallelDeepFileAnalysisDelegator(ParallelBaseAssistant):
     def _get_sub_agent_task_details(self, **task_item: Any) -> Dict[str, Any]:
         file_name = task_item.get("file_name")
         if not file_name or not isinstance(file_name, str):
-            return {"task": "Error: A valid file name is required for parallel analysis."}
+            return {"task": "错误：并行分析需要一个有效的文件名。"}
 
         return {
-            "task": f"Focus on analyzing the content of file '{file_name}' and look for exploitable information and clues.",
+            "task": f"专注于分析文件 '{file_name}' 的内容，寻找可利用的信息和线索。",
             "file_name": file_name
         }
 
@@ -453,17 +453,17 @@ class ParallelDeepFileAnalysisDelegator(ParallelBaseAssistant):
         file_name = task_details.get("file_name")
 
         if not file_name or not isinstance(file_name, str):
-            raise ValueError("Error: A valid file path is required for analysis.")
+            raise ValueError("错误：分析需要一个有效的文件路径。")
 
         file_name = file_name.lstrip('/')
 
         firmware_root = self.context.get("base_path")
         if not firmware_root or not os.path.isdir(firmware_root):
-            raise ValueError("Missing valid firmware root directory 'base_path' in context, cannot resolve path.")
+            raise ValueError("上下文中缺少有效的固件根目录 'base_path'，无法解析路径。")
 
         scope_dir = self.context.get("current_dir")
         if not scope_dir or not os.path.isdir(scope_dir):
-            raise ValueError("Missing valid working directory 'current_dir' in context, cannot perform scope check.")
+            raise ValueError("上下文中缺少有效的工作目录 'current_dir'，无法执行范围检查。")
         
         resolved_path_from_current = os.path.normpath(os.path.join(scope_dir, file_name))
         resolved_path_from_root = os.path.normpath(os.path.join(firmware_root, file_name))
@@ -480,10 +480,10 @@ class ParallelDeepFileAnalysisDelegator(ParallelBaseAssistant):
         try:
             real_resolved_path = os.path.realpath(resolved_path)
         except FileNotFoundError:
-            raise ValueError(f"File '{file_name}' not found in firmware.")
+            raise ValueError(f"在固件中未找到文件 '{file_name}'。")
 
         if not os.path.commonpath([real_resolved_path, real_firmware_root]) == real_firmware_root:
-            raise ValueError(f"The provided path '{file_name}' is invalid, may contain '..' or point outside the firmware root directory.")
+            raise ValueError(f"提供的路径 '{file_name}' 无效，可能包含 '..' 或指向固件根目录之外。")
 
         if not os.path.commonpath([real_resolved_path, real_scope_dir]) == real_scope_dir:
             current_dir_name = os.path.relpath(scope_dir, firmware_root)
@@ -493,20 +493,20 @@ class ParallelDeepFileAnalysisDelegator(ParallelBaseAssistant):
             
             if os.path.exists(potential_full_path) and os.path.isfile(potential_full_path):
                 raise ValueError(
-                    f"Path format error: You provided '{file_name}', but you must use the COMPLETE path relative to firmware root. "
-                    f"You are in directory '{current_dir_name}'. To analyze file '{basename_only}' in this directory, "
-                    f"use the full path: '{potential_correct_path}' (not just '{basename_only}')."
+                    f"路径格式错误：你提供了 '{file_name}'，但必须使用相对于固件根目录的完整路径。"
+                    f"你在目录 '{current_dir_name}' 中。要分析此目录中的文件 '{basename_only}'，"
+                    f"请使用完整路径：'{potential_correct_path}'（而不是仅 '{basename_only}'）。"
                 )
             else:
                 raise ValueError(
-                    f"Access denied: File '{file_name}' is not within your current working directory '{current_dir_name}'. "
-                    f"You are strictly restricted to analyzing files within '{current_dir_name}' only. "
-                    f"Cross-directory analysis is not allowed. If you need to analyze files in other directories, "
-                    f"report this limitation and suggest that a different agent with appropriate scope should handle it."
+                    f"访问被拒绝：文件 '{file_name}' 不在你的当前工作目录 '{current_dir_name}' 中。"
+                    f"你严格限制在 '{current_dir_name}' 内分析文件。"
+                    f"不允许跨目录分析。如果需要分析其他目录中的文件，"
+                    f"请报告此限制并建议由具有适当范围的其他代理处理。"
                 )
 
         if not os.path.isfile(resolved_path):
-            raise ValueError(f"The specified path '{file_name}' is not a valid file.")
+            raise ValueError(f"指定的路径 '{file_name}' 不是有效的文件。")
         
         sub_agent_context.set("file_path", resolved_path)
         sub_agent_context.set("file_name", os.path.basename(resolved_path))
@@ -514,23 +514,23 @@ class ParallelDeepFileAnalysisDelegator(ParallelBaseAssistant):
         return sub_agent_context
 
     def _build_sub_agent_prompt(self, usr_init_msg: Optional[str], **task_details: Any) -> str:
-        task = task_details.get("task", f"No file analysis task provided #{task_details.get('task_index',-1)+1}.")
+        task = task_details.get("task", f"未提供文件分析任务 #{task_details.get('task_index',-1)+1}。")
 
-        usr_init_msg_content = usr_init_msg if usr_init_msg else "No user initial request provided"
+        usr_init_msg_content = usr_init_msg if usr_init_msg else "未提供用户初始请求"
         
         return (
-            f"User initial request:\n{usr_init_msg_content}\n\n"
-            f"Current task:\n{task}"
+            f"用户初始请求：\n{usr_init_msg_content}\n\n"
+            f"当前任务：\n{task}"
         )
 
 
 class ParallelDeepDirectoryAnalysisDelegator(ParallelBaseAssistant):
     name = "ParallelDeepDirectoryAnalysisDelegator"
     description = """
-    Deep directory analysis delegator - distributes analysis tasks for multiple subdirectories within your current directory scope to sub-agents for parallel processing.
-    Can only analyze subdirectories in the current directory (direct children or deeper nested directories).
-    Use simple relative paths for directories in your scope.
-    Suitable for deep analysis tasks of multiple subdirectories at the same time. For complex tasks or comprehensive analysis, it is highly recommended to use this delegator.
+    深度目录分析委托器 - 将当前目录范围内多个子目录的分析任务分配给子代理并行处理。
+    只能分析当前目录中的子目录（直接子目录或更深层的嵌套目录）。
+    对于你作用域内的目录，使用简单的相对路径。
+    适用于同时对多个子目录进行深度分析的任务。对于复杂任务或全面分析，强烈建议使用此委托器。
     """
     parameters = {
         "type": "object",
@@ -539,18 +539,18 @@ class ParallelDeepDirectoryAnalysisDelegator(ParallelBaseAssistant):
                 "type": "array",
                 "items": {
                     "type": "string",
-                    "description": "The directory path relative to your current directory (e.g., 'hnap', 'init.d'). You can only access subdirectories within your current directory scope."
+                    "description": "相对于你当前目录的目录路径（例如，'hnap'、'init.d'）。你只能访问当前目录范围内的子目录。"
                 },
-                "description": "List of directory paths to be analyzed in parallel. Use paths relative to your current working directory."
+                "description": "要并行分析的目录路径列表。使用相对于当前工作目录的路径。"
             },
             "run_in_background": {
                 "type": "boolean",
-                "description": "Whether to run this task in the background.",
+                "description": "是否在后台运行此任务。",
                 "default": False
             }
         },
         "required": ["dir_names"],
-        "description": "Object containing the list of directory analysis targets within your current directory scope."
+        "description": "包含当前目录范围内目录分析目标列表的对象。"
     }
     timeout = 9600
 
@@ -586,10 +586,10 @@ class ParallelDeepDirectoryAnalysisDelegator(ParallelBaseAssistant):
     def _get_sub_agent_task_details(self, **task_item: Any) -> Dict[str, Any]:
         dir_name = task_item.get("dir_name")
         if not dir_name or not isinstance(dir_name, str):
-            return {"task": "Error: A valid directory name is required for parallel analysis."}
+            return {"task": "错误：并行分析需要一个有效的目录名。"}
         
         return {
-            "task": f"Focus on analyzing the content of directory '{dir_name}' and look for exploitable information and clues.",
+            "task": f"专注于分析目录 '{dir_name}' 的内容，寻找可利用的信息和线索。",
             "dir_name": dir_name
         }
 
@@ -597,17 +597,17 @@ class ParallelDeepDirectoryAnalysisDelegator(ParallelBaseAssistant):
         dir_name = task_details.get("dir_name")
 
         if not dir_name or not isinstance(dir_name, str):
-            raise ValueError("Error: A valid directory path is required for analysis.")
+            raise ValueError("错误：分析需要一个有效的目录路径。")
         
         dir_name = dir_name.lstrip('/')
 
         firmware_root = self.context.get("base_path")
         if not firmware_root or not os.path.isdir(firmware_root):
-            raise ValueError("Missing valid firmware root directory 'base_path' in context, cannot resolve path.")
+            raise ValueError("上下文中缺少有效的固件根目录 'base_path'，无法解析路径。")
 
         scope_dir = self.context.get("current_dir")
         if not scope_dir or not os.path.isdir(scope_dir):
-            raise ValueError("Missing valid working directory 'current_dir' in context, cannot perform scope check.")
+            raise ValueError("上下文中缺少有效的工作目录 'current_dir'，无法执行范围检查。")
 
         resolved_path_from_current = os.path.normpath(os.path.join(scope_dir, dir_name))
         resolved_path_from_root = os.path.normpath(os.path.join(firmware_root, dir_name))
@@ -624,10 +624,10 @@ class ParallelDeepDirectoryAnalysisDelegator(ParallelBaseAssistant):
         try:
             real_resolved_path = os.path.realpath(resolved_path)
         except FileNotFoundError:
-            raise ValueError(f"Directory '{dir_name}' not found in firmware.")
+            raise ValueError(f"在固件中未找到目录 '{dir_name}'。")
 
         if not os.path.commonpath([real_resolved_path, real_firmware_root]) == real_firmware_root:
-            raise ValueError(f"The provided path '{dir_name}' is invalid, may contain '..' or point outside the firmware root directory.")
+            raise ValueError(f"提供的路径 '{dir_name}' 无效，可能包含 '..' 或指向固件根目录之外。")
 
         if not os.path.commonpath([real_resolved_path, real_scope_dir]) == real_scope_dir:
             current_dir_name = os.path.relpath(scope_dir, firmware_root)
@@ -637,62 +637,62 @@ class ParallelDeepDirectoryAnalysisDelegator(ParallelBaseAssistant):
             
             if os.path.exists(potential_full_path) and os.path.isdir(potential_full_path):
                 raise ValueError(
-                    f"Path format error: You provided '{dir_name}', but you must use the COMPLETE path relative to firmware root. "
-                    f"You are in directory '{current_dir_name}'. To analyze its subdirectory '{basename_only}', "
-                    f"use the full path: '{potential_correct_path}' (not just '{basename_only}')."
+                    f"路径格式错误：你提供了 '{dir_name}'，但必须使用相对于固件根目录的完整路径。"
+                    f"你在目录 '{current_dir_name}' 中。要分析其子目录 '{basename_only}'，"
+                    f"请使用完整路径：'{potential_correct_path}'（而不是仅 '{basename_only}'）。"
                 )
             else:
                 raise ValueError(
-                    f"Access denied: Directory '{dir_name}' is not within your current working directory '{current_dir_name}'. "
-                    f"You are strictly restricted to analyzing subdirectories within '{current_dir_name}' only. "
-                    f"Cross-directory and upward directory analysis is not allowed. If you need to analyze other directories, "
-                    f"report this limitation and suggest that a different agent with appropriate scope should handle it."
+                    f"访问被拒绝：目录 '{dir_name}' 不在你的当前工作目录 '{current_dir_name}' 中。"
+                    f"你严格限制在 '{current_dir_name}' 内分析子目录。"
+                    f"不允许跨目录和向上目录分析。如果需要分析其他目录，"
+                    f"请报告此限制并建议由具有适当范围的其他代理处理。"
                 )
 
         if not os.path.isdir(resolved_path):
-            raise ValueError(f"The specified path '{dir_name}' is not a valid directory.")
+            raise ValueError(f"指定的路径 '{dir_name}' 不是有效的目录。")
 
         sub_agent_context.set("current_dir", resolved_path)
         return sub_agent_context
 
     def _build_sub_agent_prompt(self, usr_init_msg: Optional[str], **task_details: Any) -> str:
-        task = task_details.get("task", f"No directory analysis task provided #{task_details.get('task_index',-1)+1}.")
+        task = task_details.get("task", f"未提供目录分析任务 #{task_details.get('task_index',-1)+1}。")
 
-        usr_init_msg_content = usr_init_msg if usr_init_msg else "No user initial request provided"
+        usr_init_msg_content = usr_init_msg if usr_init_msg else "未提供用户初始请求"
         
         return (
-            f"User initial request:\n{usr_init_msg_content}\n\n"
-            f"Current task:\n{task}"
+            f"用户初始请求：\n{usr_init_msg_content}\n\n"
+            f"当前任务：\n{task}"
         )
 
 
 class DescriptiveFileAnalysisAssistant(BaseAssistant):
     name = "DescriptiveFileAnalysisAssistant"
     description = """
-    Agent for deep analysis of a specified file within your current directory scope with a custom task description.
-    Can only analyze files in the current directory or its subdirectories (any depth).
-    Use simple relative paths for files in your scope.
-    Suitable for deep analysis tasks of a single file with specific instructions. You can decide the next analysis task after observing the result of a single step. For targeted analysis such as verification tasks, it is highly recommended to use this agent.
+    用于对当前目录范围内指定文件进行深度分析的代理，带有自定义任务描述。
+    只能分析当前目录或其子目录（任意深度）中的文件。
+    对于你作用域内的文件，使用简单的相对路径。
+    适用于具有特定指令的单个文件深度分析任务。你可以在观察单步结果后决定下一个分析任务。对于验证任务等有针对性的分析，强烈建议使用此代理。
     """
     parameters = {
         "type": "object",
         "properties": {
             "file_name": {
                 "type": "string",
-                "description": "The file path relative to your current directory (e.g., 'config.php', 'hnap/Login.xml'). You can only access files in your current directory or its subdirectories."
+                "description": "相对于你当前目录的文件路径（例如，'config.php'、'hnap/Login.xml'）。你只能访问当前目录或其子目录中的文件。"
             },
             "task": {
                 "type": "string",
-                "description": "Specific task description on how to analyze the file."
+                "description": "关于如何分析文件的具体任务描述。"
             },
             "run_in_background": {
                 "type": "boolean",
-                "description": "Whether to run this task in the background.",
+                "description": "是否在后台运行此任务。",
                 "default": False
             }
         },
         "required": ["file_name", "task"],
-        "description": "Object containing the file analysis target and detailed task description. Use paths relative to your current working directory."
+        "description": "包含文件分析目标和详细任务描述的对象。使用相对于当前工作目录的路径。"
     }
 
     def __init__(
@@ -725,9 +725,9 @@ class DescriptiveFileAnalysisAssistant(BaseAssistant):
         task = kwargs.get("task")
 
         if not file_name or not isinstance(file_name, str):
-            return {"task": "Error: A valid file name is required for analysis."}
+            return {"task": "错误：分析需要一个有效的文件名。"}
         if not task:
-            task = f"Focus on analyzing the content of file '{file_name}' and look for exploitable information."
+            task = f"专注于分析文件 '{file_name}' 的内容，寻找可利用的信息。"
         
         return {
             "task": task,
@@ -738,17 +738,17 @@ class DescriptiveFileAnalysisAssistant(BaseAssistant):
         file_name = task_details.get("file_name")
 
         if not file_name or not isinstance(file_name, str):
-            raise ValueError("Error: A valid file path is required for analysis.")
+            raise ValueError("错误：分析需要一个有效的文件路径。")
         
         file_name = file_name.lstrip('/')
 
         firmware_root = self.context.get("base_path")
         if not firmware_root or not os.path.isdir(firmware_root):
-            raise ValueError("Missing valid firmware root directory 'base_path' in context, cannot resolve path.")
+            raise ValueError("上下文中缺少有效的固件根目录 'base_path'，无法解析路径。")
 
         scope_dir = self.context.get("current_dir")
         if not scope_dir or not os.path.isdir(scope_dir):
-            raise ValueError("Missing valid working directory 'current_dir' in context, cannot perform scope check.")
+            raise ValueError("上下文中缺少有效的工作目录 'current_dir'，无法执行范围检查。")
 
         resolved_path_from_current = os.path.normpath(os.path.join(scope_dir, file_name))
         resolved_path_from_root = os.path.normpath(os.path.join(firmware_root, file_name))
@@ -766,10 +766,10 @@ class DescriptiveFileAnalysisAssistant(BaseAssistant):
         try:
             real_resolved_path = os.path.realpath(resolved_path)
         except FileNotFoundError:
-             raise ValueError(f"File '{file_name}' not found in firmware.")
+             raise ValueError(f"在固件中未找到文件 '{file_name}'。")
 
         if not os.path.commonpath([real_resolved_path, real_firmware_root]) == real_firmware_root:
-            raise ValueError(f"The provided path '{file_name}' is invalid, may contain '..' or point outside the firmware root directory.")
+            raise ValueError(f"提供的路径 '{file_name}' 无效，可能包含 '..' 或指向固件根目录之外。")
 
         if not os.path.commonpath([real_resolved_path, real_scope_dir]) == real_scope_dir:
             current_dir_name = os.path.relpath(scope_dir, firmware_root)
@@ -779,20 +779,20 @@ class DescriptiveFileAnalysisAssistant(BaseAssistant):
             
             if os.path.exists(potential_full_path) and os.path.isfile(potential_full_path):
                 raise ValueError(
-                    f"Path format error: You provided '{file_name}', but you must use the COMPLETE path relative to firmware root. "
-                    f"You are in directory '{current_dir_name}'. To analyze file '{basename_only}' in this directory, "
-                    f"use the full path: '{potential_correct_path}' (not just '{basename_only}')."
+                    f"路径格式错误：你提供了 '{file_name}'，但必须使用相对于固件根目录的完整路径。"
+                    f"你在目录 '{current_dir_name}' 中。要分析此目录中的文件 '{basename_only}'，"
+                    f"请使用完整路径：'{potential_correct_path}'（而不是仅 '{basename_only}'）。"
                 )
             else:
                 raise ValueError(
-                    f"Access denied: File '{file_name}' is not within your current working directory '{current_dir_name}'. "
-                    f"You are strictly restricted to analyzing files within '{current_dir_name}' only. "
-                    f"Cross-directory analysis is not allowed. If you need to analyze files in other directories, "
-                    f"report this limitation and suggest that a different agent with appropriate scope should handle it."
+                    f"访问被拒绝：文件 '{file_name}' 不在你的当前工作目录 '{current_dir_name}' 中。"
+                    f"你严格限制在 '{current_dir_name}' 内分析文件。"
+                    f"不允许跨目录分析。如果需要分析其他目录中的文件，"
+                    f"请报告此限制并建议由具有适当范围的其他代理处理。"
                 )
 
         if not os.path.isfile(resolved_path):
-            raise ValueError(f"The specified path '{file_name}' is not a valid file.")
+            raise ValueError(f"指定的路径 '{file_name}' 不是有效的文件。")
 
         sub_agent_context.set("file_path", resolved_path)
         sub_agent_context.set("file_name", os.path.basename(resolved_path))
@@ -802,11 +802,11 @@ class DescriptiveFileAnalysisAssistant(BaseAssistant):
     def _build_sub_agent_prompt(self, usr_init_msg: Optional[str], **task_details: Any) -> str:
         task = task_details.get("task", "No file analysis task provided.")
         
-        usr_init_msg_content = usr_init_msg if usr_init_msg else "No user initial request provided"
+        usr_init_msg_content = usr_init_msg if usr_init_msg else "未提供用户初始请求"
         
         return (
-            f"User initial request:\n{usr_init_msg_content}\n\n"
-            f"Current task:\n{task}"
+            f"用户初始请求：\n{usr_init_msg_content}\n\n"
+            f"当前任务：\n{task}"
         )
 
 
@@ -814,30 +814,30 @@ class DescriptiveFileAnalysisAssistant(BaseAssistant):
 class DescriptiveDirectoryAnalysisAssistant(BaseAssistant):
     name = "DescriptiveDirectoryAnalysisAssistant"
     description = """
-    Agent for deep analysis of a specified subdirectory within your current directory scope with a custom task description.
-    Can only analyze subdirectories in the current directory (direct children or deeper nested directories).
-    Use simple relative paths for directories in your scope.
-    Suitable for deep analysis tasks of a single subdirectory with specific instructions. You can decide the next analysis task after observing the result of a single step. For targeted analysis such as verification tasks, it is highly recommended to use this agent.
+    用于对当前目录范围内指定子目录进行深度分析的代理，带有自定义任务描述。
+    只能分析当前目录中的子目录（直接子目录或更深层的嵌套目录）。
+    对于你作用域内的目录，使用简单的相对路径。
+    适用于具有特定指令的单个子目录深度分析任务。你可以在观察单步结果后决定下一个分析任务。对于验证任务等有针对性的分析，强烈建议使用此代理。
     """
     parameters = {
         "type": "object",
         "properties": {
             "dir_name": {
                 "type": "string",
-                "description": "The directory path relative to your current directory (e.g., 'hnap', 'init.d'). You can only access subdirectories within your current directory scope."
+                "description": "相对于你当前目录的目录路径（例如，'hnap'、'init.d'）。你只能访问当前目录范围内的子目录。"
             },
             "task": {
                 "type": "string",
-                "description": "Specific task description on how to analyze the directory."
+                "description": "关于如何分析目录的具体任务描述。"
             },
             "run_in_background": {
                 "type": "boolean",
-                "description": "Whether to run this task in the background.",
+                "description": "是否在后台运行此任务。",
                 "default": False
             }
         },
         "required": ["dir_name", "task"],
-        "description": "Object containing the directory analysis target and detailed task description. Use paths relative to your current working directory."
+        "description": "包含目录分析目标和详细任务描述的对象。使用相对于当前工作目录的路径。"
     }
 
     def __init__(
@@ -870,10 +870,10 @@ class DescriptiveDirectoryAnalysisAssistant(BaseAssistant):
         task = kwargs.get("task")
 
         if not dir_name or not isinstance(dir_name, str):
-            return {"task": "Error: A valid directory name is required for analysis."}
+            return {"task": "错误：分析需要一个有效的目录名。"}
         
         if not task:
-            task = f"Focus on analyzing the content of directory '{dir_name}' and look for exploitable information and clues."
+            task = f"专注于分析目录 '{dir_name}' 的内容，寻找可利用的信息和线索。"
         
         return {
             "task": task,
@@ -884,17 +884,17 @@ class DescriptiveDirectoryAnalysisAssistant(BaseAssistant):
         dir_name = task_details.get("dir_name")
 
         if not dir_name or not isinstance(dir_name, str):
-            raise ValueError("Error: A valid directory path is required for analysis.")
+            raise ValueError("错误：分析需要一个有效的目录路径。")
 
         dir_name = dir_name.lstrip('/')
 
         firmware_root = self.context.get("base_path")
         if not firmware_root or not os.path.isdir(firmware_root):
-            raise ValueError("Missing valid firmware root directory 'base_path' in context, cannot resolve path.")
+            raise ValueError("上下文中缺少有效的固件根目录 'base_path'，无法解析路径。")
 
         scope_dir = self.context.get("current_dir")
         if not scope_dir or not os.path.isdir(scope_dir):
-            raise ValueError("Missing valid working directory 'current_dir' in context, cannot perform scope check.")
+            raise ValueError("上下文中缺少有效的工作目录 'current_dir'，无法执行范围检查。")
 
         resolved_path_from_current = os.path.normpath(os.path.join(scope_dir, dir_name))
         resolved_path_from_root = os.path.normpath(os.path.join(firmware_root, dir_name))
@@ -911,10 +911,10 @@ class DescriptiveDirectoryAnalysisAssistant(BaseAssistant):
         try:
             real_resolved_path = os.path.realpath(resolved_path)
         except FileNotFoundError:
-            raise ValueError(f"Directory '{dir_name}' not found in firmware.")
+            raise ValueError(f"在固件中未找到目录 '{dir_name}'。")
 
         if not os.path.commonpath([real_resolved_path, real_firmware_root]) == real_firmware_root:
-            raise ValueError(f"The provided path '{dir_name}' is invalid, may contain '..' or point outside the firmware root directory.")
+            raise ValueError(f"提供的路径 '{dir_name}' 无效，可能包含 '..' 或指向固件根目录之外。")
 
         if not os.path.commonpath([real_resolved_path, real_scope_dir]) == real_scope_dir:
             current_dir_name = os.path.relpath(scope_dir, firmware_root)
@@ -924,20 +924,20 @@ class DescriptiveDirectoryAnalysisAssistant(BaseAssistant):
             
             if os.path.exists(potential_full_path) and os.path.isdir(potential_full_path):
                 raise ValueError(
-                    f"Path format error: You provided '{dir_name}', but you must use the COMPLETE path relative to firmware root. "
-                    f"You are in directory '{current_dir_name}'. To analyze its subdirectory '{basename_only}', "
-                    f"use the full path: '{potential_correct_path}' (not just '{basename_only}')."
+                    f"路径格式错误：你提供了 '{dir_name}'，但必须使用相对于固件根目录的完整路径。"
+                    f"你在目录 '{current_dir_name}' 中。要分析其子目录 '{basename_only}'，"
+                    f"请使用完整路径：'{potential_correct_path}'（而不是仅 '{basename_only}'）。"
                 )
             else:
                 raise ValueError(
-                    f"Access denied: Directory '{dir_name}' is not within your current working directory '{current_dir_name}'. "
-                    f"You are strictly restricted to analyzing subdirectories within '{current_dir_name}' only. "
-                    f"Cross-directory and upward directory analysis is not allowed. If you need to analyze other directories, "
-                    f"report this limitation and suggest that a different agent with appropriate scope should handle it."
+                    f"访问被拒绝：目录 '{dir_name}' 不在你的当前工作目录 '{current_dir_name}' 中。"
+                    f"你严格限制在 '{current_dir_name}' 内分析子目录。"
+                    f"不允许跨目录和向上目录分析。如果需要分析其他目录，"
+                    f"请报告此限制并建议由具有适当范围的其他代理处理。"
                 )
 
         if not os.path.isdir(resolved_path):
-            raise ValueError(f"The specified path '{dir_name}' is not a valid directory.")
+            raise ValueError(f"指定的路径 '{dir_name}' 不是有效的目录。")
 
         sub_agent_context.set("current_dir", resolved_path)
         sub_agent_context.set("file_path", None)
@@ -946,9 +946,9 @@ class DescriptiveDirectoryAnalysisAssistant(BaseAssistant):
     def _build_sub_agent_prompt(self, usr_init_msg: Optional[str], **task_details: Any) -> str:
         task = task_details.get("task", "No directory analysis task provided.")
         
-        usr_init_msg_content = usr_init_msg if usr_init_msg else "No user initial request provided"
+        usr_init_msg_content = usr_init_msg if usr_init_msg else "未提供用户初始请求"
         
         return (
-            f"User initial request:\n{usr_init_msg_content}\n\n"
-            f"Current task:\n{task}"
+            f"用户初始请求：\n{usr_init_msg_content}\n\n"
+            f"当前任务：\n{task}"
         )

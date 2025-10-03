@@ -2,37 +2,31 @@ import sys
 import argparse
 
 T1_HARDCODED_CREDENTIALS = (
-    "Perform a comprehensive scan of the firmware filesystem to locate and report all hard-coded credentials and sensitive information. "
+    "对固件文件系统进行全面扫描，以定位并报告所有硬编码的凭据和敏感信息。"
 )
 
 T2_COMPONENT_CVE = (
-    "Analyze the firmware to generate a Software Bill of Materials (SBOM) for third-party components and identify associated high-risk vulnerabilities (CVEs). "
+    "分析固件以生成第三方组件的软件物料清单（SBOM），并识别相关的高风险漏洞（CVE）。"
 )
 
 T3_NVRAM_INTERACTION = (
-    "Analyze access to NVRAM and similar environment variable configuration systems (e.g., `getenv`) in the firmware. "
-    "The core task is to identify and report the complete, unsanitized data flow path from these variables to dangerous function calls."
+    "分析固件中对 NVRAM 和类似环境变量配置系统（例如 `getenv`）的访问。"
+    "核心任务是识别并报告从这些变量到危险函数调用的完整、未清理的数据流路径。"
 )
 
 T4_WEB_ATTACK_CHAIN = (
-    "Analyze the firmware's web services to locate vulnerabilities where external HTTP input is passed to dangerous "
-    "functions (e.g., `system`, `strcpy`). The core task is to identify and report the complete, unsanitized data flow path from HTTP parameters to dangerous function calls. "
+    "分析固件的 Web 服务，以定位外部 HTTP 输入传递到危险函数（例如 `system`、`strcpy`）的漏洞。"
+    "核心任务是识别并报告从 HTTP 参数到危险函数调用的完整、未清理的数据流路径。"
 )
 
 T5_COMPREHENSIVE_ANALYSIS = (
-    "Perform a comprehensive security analysis of the firmware. The core objective is to identify and report "
-    "complete, viable, and **practically exploitable** attack chains from untrusted input points to dangerous operations. "
-    "The analysis must focus on vulnerabilities with clear evidence of exploitability, not theoretical flaws.\n"
-    "1. **Input Point Identification**: Identify all potential sources of untrusted input, including but not limited "
-    "to network interfaces (HTTP, API, sockets), IPC, NVRAM/environment variables, etc.\n"
-    "2. **Data Flow Tracking**: Trace the propagation paths of untrusted data within the system and analyze whether "
-    "there are any processes without proper validation, filtering, or boundary checks.\n"
-    "3. **Component Interaction Analysis**: Focus on interactions between components (e.g., `nvram` get/set, IPC "
-    "communication) to observe how externally controllable data flows within the system and affects other components.\n"
-    "4. **Exploit Chain Evaluation**: For each potential attack chain discovered, evaluate its trigger conditions, "
-    "reproduction steps, and the probability of successful exploitation. **A finding is only valid if a complete and verifiable chain is found.**\n"
-    "5. **Final Output**: The report should clearly describe the attack paths and security vulnerabilities most likely "
-    "to be successfully exploited by an attacker."
+    "对固件进行全面的安全分析。核心目标是识别并报告从不可信输入点到危险操作的完整、可行且**实际可利用**的攻击链。"
+    "分析必须关注具有明确可利用性证据的漏洞，而不是理论缺陷。\n"
+    "1. **输入点识别**：识别所有潜在的不可信输入源，包括但不限于网络接口（HTTP、API、套接字）、IPC、NVRAM/环境变量等。\n"
+    "2. **数据流追踪**：追踪不可信数据在系统内的传播路径，并分析是否存在缺少适当验证、过滤或边界检查的过程。\n"
+    "3. **组件交互分析**：关注组件之间的交互（例如 `nvram` get/set、IPC 通信），观察外部可控数据如何在系统内流动并影响其他组件。\n"
+    "4. **利用链评估**：对于发现的每个潜在攻击链，评估其触发条件、重现步骤以及成功利用的概率。**只有找到完整且可验证的链时，发现才是有效的。**\n"
+    "5. **最终输出**：报告应清楚地描述攻击者最有可能成功利用的攻击路径和安全漏洞。"
 )
 
 def get_task_prompt(task_name: str) -> str:

@@ -115,10 +115,17 @@ for result_dir in $firmware_result_dirs; do
     ) &
     pids+=($!)
 
+    # 控制并发数：当达到最大并发数时，等待任意一个完成
     if [ ${#pids[@]} -ge "$PARALLEL_JOBS" ]; then
-        wait -n
-        unset 'pids[0]'
-        pids=("${pids[@]}")
+        wait -n  # 等待任意一个后台进程完成
+        # 清理已完成的进程ID
+        new_pids=()
+        for pid in "${pids[@]}"; do
+            if kill -0 "$pid" 2>/dev/null; then
+                new_pids+=("$pid")
+            fi
+        done
+        pids=("${new_pids[@]}")
     fi
 done
 

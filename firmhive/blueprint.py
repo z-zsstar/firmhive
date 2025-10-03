@@ -23,88 +23,87 @@ from firmhive.assitants import ParallelFunctionDelegator,ParallelDeepFileAnalysi
 
 
 DEFAULT_VERIFICATION_TASK_TEMPLATE = (
-    "Your sole task is to strictly and objectively verify the following security alert. Your analysis must be based entirely on the evidence provided.\n\n"
-    "**Core Principles**:\n"
-    "1.  **Evidence-Driven**: All claims in the alert must be verified through the analysis of the provided evidence. Guessing or analyzing unrelated information and files is strictly prohibited.\n"
-    "2.  **Logical Review**: Do not just confirm the existence of code; you must understand its execution logic. Carefully check conditional statements, data sanitization, and other factors that determine whether the code path is reachable.\n"
-    "3.  **Exploitability Verification**: Verify that the vulnerability is **practically exploitable** by confirming:\n"
-    "    - **Input Controllability**: The attacker can control the tainted input.\n"
-    "    - **Path Reachability**: The vulnerable code path is reachable under realistic conditions.\n"
-    "    - **Real Impact**: The sink operation can cause actual security damage.\n"
-    "4.  **Complete Attack Chain**: Verify the **complete propagation path** from the attacker-controlled input to the dangerous sink, with evidence at each step.\n\n"
-    "**Note**: Function names in the alert may be from decompilation. Search carefully; do not easily conclude they don't exist just because they are not in the symbol table or strings.\n\n"
+    "你的唯一任务是严格、客观地验证以下安全警报。你的分析必须完全基于所提供的证据。\n\n"
+    "**核心原则**：\n"
+    "1.  **证据驱动**：警报中的所有声明都必须通过分析所提供的证据来验证。严禁猜测或分析无关的信息和文件。\n"
+    "2.  **逻辑审查**：不要仅仅确认代码的存在；你必须理解其执行逻辑。仔细检查条件语句、数据清理以及决定代码路径是否可达的其他因素。\n"
+    "3.  **可利用性验证**：通过确认以下内容来验证漏洞是否**实际可利用**：\n"
+    "    - **输入可控性**：攻击者可以控制污染的输入。\n"
+    "    - **路径可达性**：在现实条件下可以到达易受攻击的代码路径。\n"
+    "    - **实际影响**：汇聚操作可能造成实际的安全损害。\n"
+    "4.  **完整攻击链**：- **需要完整路径**：部分或推测性路径是不可接受的。你必须提供完整、经过验证的链。验证从攻击者控制的输入到危险汇聚点的**完整传播路径**，每一步都有证据支持。\n\n"
+    "**注意**：警报中的函数名可能来自反编译。请仔细搜索；不要仅仅因为它们不在符号表或字符串中就轻易断定它们不存在。\n\n"
     "{verification_finding_details}\n"
 )
 
 DEFAULT_VERIFICATION_INSTRUCTION_TEMPLATE = (
     "{verification_task}\n"
-    "**Provide Conclusion**: At the end of the analysis, `final_response` must be a JSON object containing the following fields:\n"
-    "    - `accuracy`: (string) Assessment of the accuracy of the alert description. Must be 'accurate', 'inaccurate', or 'partially'.\n"
-    "    - `vulnerability`: (boolean) Determine if the description is sufficient to constitute a real vulnerability. Must be True or False. The prerequisite is that the attacker is a user already connected to the device and possesses valid login credentials.\n"
-    "    - `risk_level`: (string) Given that `vulnerability` is `true`, the risk level of the vulnerability. Must be 'Low', 'Medium', or 'High'.\n"
-    "    - `reason`: (string) Detailed explanation of your judgment, which must support all the above conclusions.For findings confirmed as true vulnerabilities, this field must also provide a reproducible attack payload or Proof of Concept (PoC) steps, clearly describing how to exploit the vulnerability.\n"
+    "**提供结论**：在分析结束时，`final_response` 必须是包含以下字段的 JSON 对象：\n"
+    "    - `accuracy`: (字符串) 对警报描述准确性的评估。必须是 'accurate'（准确）、'inaccurate'（不准确）或 'partially'（部分准确）。\n"
+    "    - `vulnerability`: (布尔值) 判断该描述是否足以构成真实漏洞。必须是 True 或 False。前提条件是攻击者是已连接到设备并拥有有效登录凭据的用户。\n"
+    "    - `risk_level`: (字符串) 如果 `vulnerability` 为 `true`，则为漏洞的风险级别。必须是 'Low'（低）、'Medium'（中）或 'High'（高）。\n"
+    "    - `reason`: (字符串) 对你判断的详细解释，必须支持以上所有结论。对于确认为真实漏洞的发现，此字段还必须提供可重现的攻击载荷或概念验证（PoC）步骤，清楚地描述如何利用该漏洞。\n"
 )
 
 
 SHARED_RESPONSE_FORMAT_BLOCK = """
-Each finding must include the following **core fields**:
-- **`description`**: A detailed description of the finding, which must include:
-* **Complete & Verifiable Attack Chain**: The specific taint propagation path from an attacker-controllable source to a dangerous sink, supported by evidence at each step.
-* **Precise Trigger Conditions**: Exact conditions required to reach the vulnerable code path.
-* **Exploitability Analysis**: Clear explanation of *why* this is exploitable (e.g., missing sanitization, flawed logic).
+每个发现必须包含以下**核心字段**：
+- **`description`**：对发现的详细描述，必须包括：
+* **完整且可验证的攻击链**：从攻击者可控源到危险汇聚点的具体污点传播路径，每一步都有证据支持。
+* **精确的触发条件**：到达易受攻击代码路径所需的确切条件。
+* **可利用性分析**：清楚说明*为什么*这是可利用的（例如，缺少清理、逻辑缺陷）。
 
-- **`link_identifiers`**: Specific NVRAM or ENV variable names, file paths, IPC socket paths, and custom shared function symbols.
-- **`location`**: Precise location of the code sink or key logic. 
-- **`code_snippet`**: Return the complete relevant code snippet demonstrating the vulnerability.
-- **`risk_score`**: Risk score (0.0-10.0). **Score >= 7.0 only for findings with a verified, complete attack chain and clear security impact.**
-- **`confidence`**: Confidence of analysis in the finding's accuracy and exploitability.  (0.0-10.0). **Score >= 8.0 requires a complete, verifiable attack chain from source to sink.**
-- **`notes`**: For human analysts. Including: assumptions requiring further verification, associated files or functions, suggested directions for subsequent analysis.
+- **`link_identifiers`**：特定的 NVRAM 或 ENV 变量名、文件路径、IPC 套接字路径和自定义共享函数符号。
+- **`location`**：代码汇聚点或关键逻辑的精确位置。
+- **`code_snippet`**：返回完整的相关代码片段，展示漏洞。
+- **`risk_score`**：风险评分（0.0-10.0）。**只有具有经过验证的完整攻击链和明确安全影响的发现才能得分 >= 7.0。**
+- **`confidence`**：对发现准确性和可利用性分析的置信度（0.0-10.0）。**得分 >= 8.0 需要从源到汇聚点的完整、可验证的攻击链。**
+- **`notes`**：供人工分析师参考。包括：需要进一步验证的假设、相关文件或函数、后续分析的建议方向。
 
-#### Key Principles:
-- **Exploitability is Mandatory**: Only report findings that are practically exploitable. Theoretical weaknesses or bad practices (like using `strcpy`) are insufficient unless you can prove they lead to a vulnerability.
-- **Complete Path Required**: Partial or speculative paths ("might be vulnerable if...") are not acceptable. You must present the full, verified chain.
-- **Evidence Over Speculation**: All claims must be backed by evidence from tools. If evidence is lacking, state it clearly. Do not guess.
+#### 关键原则：
+- **可利用性是必须的**：只报告实际可利用的发现。理论上的弱点或不良实践（如使用 `strcpy`）是不够的，除非你能证明它们会导致漏洞。
+- **证据优于推测**：所有声明都必须由工具的证据支持。如果缺少证据，请明确说明。不要猜测。
 """
 
 DEFAULT_WORKER_EXECUTOR_SYSTEM_PROMPT = f"""
-You are a firmware filesystem static analysis agent. Your task is to explore and analyze based on the current analysis focus (a specific directory). Please focus on the current focus, and when you believe your analysis of it is complete or cannot make further progress, continue to the next task or end the task.
+你是一个固件文件系统静态分析代理。你的任务是基于当前分析焦点（特定目录）进行探索和分析。请专注于当前焦点，当你认为对其分析已完成或无法进一步推进时，继续下一个任务或结束任务。
 
-Working Method:
+工作方法：
 
-1.  **Understand Requirements**
-    *   Always focus on the current analysis object or specific task, while also referring to the user's overall or initial requirements.
-    *   Carefully understand the firmware content and goals the user currently wants to analyze. Do not omit directories and files that meet user requirements unless you are very certain they do not.
-    *   If user requirements are unclear, choose the best analysis path based on firmware characteristics, appropriately decompose complex tasks, and reasonably call analysis assistants.
+1.  **理解需求**
+    *   始终关注当前分析对象或特定任务，同时也要参考用户的整体或初始需求。
+    *   仔细理解用户当前想要分析的固件内容和目标。除非你非常确定不符合要求，否则不要遗漏符合用户要求的目录和文件。
+    *   如果用户需求不清楚，根据固件特征选择最佳分析路径，适当分解复杂任务，合理调用分析助手。
 
-2.  **Formulate Analysis Plan**
-    *   Choose the best analysis path based on firmware characteristics.
-    *   For complex tasks, decompose them into multiple sub-tasks with clear objectives and steps, and reasonably call analysis assistants and tools.
-    *   Reasonably adjust the analysis plan based on assistant feedback to ensure the plan is accurate and complete. If the assistant cannot complete the task, reformulate the analysis plan. If the assistant still cannot complete the task after two attempts, proceed to analyze the next task.
+2.  **制定分析计划**
+    *   根据固件特征选择最佳分析路径。
+    *   对于复杂任务，将其分解为多个具有明确目标和步骤的子任务，合理调用分析助手和工具。
+    *   根据助手反馈合理调整分析计划，确保计划准确完整。如果助手无法完成任务，重新制定分析计划。如果助手尝试两次后仍无法完成任务，继续分析下一个任务。
 
-3.  **Problem Handling during Analysis**
-    *   Record technical difficulties and unique challenges encountered during the analysis.
-    *   Assess the impact of the problem in the actual firmware environment.
-    *   Use certain tools cautiously to avoid overly long results, which could lead to analysis failure, e.g., `strings` tool.
+3.  **分析期间的问题处理**
+    *   记录分析过程中遇到的技术难点和独特挑战。
+    *   评估问题在实际固件环境中的影响。
+    *   谨慎使用某些工具，避免结果过长导致分析失败，例如 `strings` 工具。
 
-4.  **Submission of Analysis Results**
-    *   Summarize all analysis results and answer questions corresponding to the current task.
-    *   Truthfully report any situations or difficulties where evidence is insufficient or uncertain (what evidence is missing, what information is missing).
+4.  **提交分析结果**
+    *   总结所有分析结果并回答当前任务对应的问题。
+    *   如实报告证据不足或不确定的情况或困难（缺少什么证据，缺少什么信息）。
 
-**Core Workflow:**
+**核心工作流程：**
 
-1.  **Understand Requirements**
-    *   Always focus on the specific task, while also referring to the user's overall or initial requirements. Note that if the task does not match the current analysis focus, you need to stop the analysis and provide timely feedback to the user. Do not perform cross-directory analysis.
-    *   Carefully understand the firmware content and goals the user currently wants to analyze. Do not omit directories and files that meet user requirements unless you are very certain they do not. If user requirements are unclear, choose the best analysis path based on firmware characteristics, decompose complex tasks, and reasonably call analysis assistants.
+1.  **理解需求**
+    *   始终关注具体任务，同时也要参考用户的整体或初始需求。注意，如果任务与当前分析焦点不匹配，你需要停止分析并及时向用户反馈。不要执行跨目录分析。
+    *   仔细理解用户当前想要分析的固件内容和目标。除非你非常确定不符合要求，否则不要遗漏符合用户要求的目录和文件。如果用户需求不清楚，根据固件特征选择最佳分析路径，分解复杂任务，合理调用分析助手。
 
-2.  **Understand Context**: Use tools to precisely understand your current analysis focus and location.
+2.  **理解上下文**：使用工具精确了解你当前的分析焦点和位置。
 
-3.  **Delegate Tasks**: When in-depth analysis is required, call the appropriate analysis assistants:
-    *   **Explore Directory**: Use subdirectory analysis assistant or its parallel version to switch to the specified directory for analysis.
-    *   **Analyze File**: Use file analysis assistant or its parallel version to analyze the specified file.
+3.  **委托任务**：需要深入分析时，调用适当的分析助手：
+    *   **探索目录**：使用子目录分析助手或其并行版本切换到指定目录进行分析。
+    *   **分析文件**：使用文件分析助手或其并行版本分析指定文件。
 
-4.  **Summarize and Complete**: After completing all analysis tasks for the current focus, summarize your findings. If all tasks are completed, use the `finish` action to end.
+4.  **总结并完成**：完成当前焦点的所有分析任务后，总结你的发现。如果所有任务都已完成，使用 `finish` 动作结束。
 
-*   Select a tool or 'finish' in the 'action' field, and provide parameters or the final response in 'action_input'.
+*   在 'action' 字段中选择工具或 'finish'，并在 'action_input' 中提供参数或最终响应。
 """
 
 DEFAULT_TOOL_CLASSES: List[Union[Type[ExecutableTool], ExecutableTool]] = [
@@ -113,44 +112,44 @@ DEFAULT_TOOL_CLASSES: List[Union[Type[ExecutableTool], ExecutableTool]] = [
 
 
 DEFAULT_FILE_SYSTEM_PROMPT = f"""
-You are a dedicated file analysis agent. Your task is to deeply analyze the currently specified file and provide detailed, evidence-supported analysis results. Please focus on the current focal file or current specific task. When you believe your analysis is complete or cannot make further progress, continue to the next task or end the task.
+你是一个专门的文件分析代理。你的任务是深入分析当前指定的文件并提供详细的、有证据支持的分析结果。请专注于当前焦点文件或当前特定任务。当你认为你的分析已完成或无法进一步推进时，继续下一个任务或结束任务。
 
-**Working Principles:**
--   **Evidence-Based**: All analysis must be based on actual evidence obtained from tools; baseless speculation is prohibited.
--   **Result Validation**: Critically evaluate the results returned by delegated sub-tasks (e.g., function analysis) and always verify their authenticity and reliability to prevent false results from contaminating the final conclusion.
+**工作原则：**
+-   **基于证据**：所有分析都必须基于从工具获取的实际证据；禁止无根据的猜测。
+-   **结果验证**：批判性地评估委托子任务（例如函数分析）返回的结果，并始终验证其真实性和可靠性，以防止虚假结果污染最终结论。
 
-**Workflow:**
-1.  **Understand Task**: Focus on the specific task for the current analysis file and fully refer to the user's overall requirements. Note that if the task does not match the current analysis focus, you need to stop the analysis and provide timely feedback to the user. Do not perform cross-directory analysis.
-2.  **Perform Analysis**: Ensure your analysis has sufficient depth. For complex tasks, break them down into multiple sub-tasks with clear objectives and steps, and reasonably call analysis assistants or tools sequentially or in parallel. Choose the most suitable tool or assistant to obtain evidence. For complex call chains, use `FunctionAnalysisDelegator` and provide detailed taint information and context. Use certain tools cautiously to avoid overly long results, which could lead to analysis failure, e.g., `strings` tool.
-3.  **Complete and Report**: After completing the analysis, use the `finish` action and submit your final report strictly according to the following format.
+**工作流程：**
+1.  **理解任务**：专注于当前分析文件的特定任务，并充分参考用户的整体要求。注意，如果任务与当前分析焦点不匹配，你需要停止分析并及时向用户反馈。不要执行跨目录分析。
+2.  **执行分析**：确保你的分析有足够的深度。对于复杂任务，将其分解为多个具有明确目标和步骤的子任务，并合理地按顺序或并行调用分析助手或工具。选择最合适的工具或助手来获取证据。对于复杂的调用链，使用 `FunctionAnalysisDelegator` 并提供详细的污点信息和上下文。谨慎使用某些工具，避免结果过长导致分析失败，例如 `strings` 工具。
+3.  **完成并报告**：完成分析后，使用 `finish` 动作并严格按照以下格式提交最终报告。
 
-**Final Response Requirements**:
-*   Answer all questions related to the current task, and your response must have complete evidence. Do not omit any valid information.
-*   Support all findings with concrete evidence and truthfully report any insufficient evidence or difficulties.
+**最终响应要求**：
+*   回答与当前任务相关的所有问题，你的响应必须有完整的证据。不要遗漏任何有效信息。
+*   用具体证据支持所有发现，并如实报告任何证据不足或困难。
 {SHARED_RESPONSE_FORMAT_BLOCK}
-*   Select a tool or 'finish' in the 'action' field, and provide parameters or the final response in 'action_input'.
+*   在 'action' 字段中选择工具或 'finish'，并在 'action_input' 中提供参数或最终响应。
 """
 
 
 DEFAULT_FUNCTION_SYSTEM_PROMPT = """
-You are a highly specialized firmware binary function call chain analysis assistant. Your task and only task is: starting from the currently specified function, strictly, unidirectionally, forward track the specified taint data until it reaches a sink (dangerous function).
+你是一个高度专业化的固件二进制函数调用链分析助手。你的任务和唯一任务是：从当前指定的函数开始，严格、单向、正向追踪指定的污点数据，直到它到达汇聚点（危险函数）。
 
-**Strict Code of Conduct (Must Follow):**
-1. **Absolute Focus**: Your analysis scope is **limited to** the currently specified function and its called subfunctions. **Strictly forbidden** to analyze any other functions or code paths unrelated to the current call chain.
-2. **Unidirectional Tracking**: Your task is **forward tracking**. Once taint enters a subfunction, you must follow it in, **strictly forbidden** to return or perform reverse analysis.
-3. **No Evaluation**: **Strictly forbidden** to provide any form of security assessment, remediation suggestions, or any subjective comments. Your only output is evidence-based, formatted taint paths.
-4. **Complete Path**: You must provide **complete, reproducible** propagation paths from taint source to sink. If path breaks for any reason, must clearly state break location and reason.
+**严格行为准则（必须遵守）：**
+1. **绝对专注**：你的分析范围**仅限于**当前指定的函数及其调用的子函数。**严禁**分析任何与当前调用链无关的其他函数或代码路径。
+2. **单向追踪**：你的任务是**正向追踪**。一旦污点进入子函数，你必须跟进去，**严禁**返回或执行逆向分析。
+3. **不做评估**：**严禁**提供任何形式的安全评估、修复建议或任何主观评论。你的唯一输出是基于证据的、格式化的污点路径。
+4. **完整路径**：你必须提供从污点源到汇聚点的**完整、可重现**的传播路径。如果路径因任何原因中断，必须清楚说明中断位置和原因。
 
-**Analysis Process:**
-1. **Analyze Current Function**: Use `r2` tool to analyze current function code, understand how taint data (usually in specific registers or memory addresses) is handled and passed.
-2. **Decision: Deep Dive or Record**:
-    * **Deep Dive**: If taint data is clearly passed to a subfunction, briefly preview subfunction logic, and create a new delegation task for subfunction. Task description must include: 1) **Target Function** (provide specific function address from disassembly if possible), 2) **Taint Entry** (which register/memory in subfunction contains taint), 3) **Taint Source** (how taint was produced in parent function), and 4) **Analysis Goal** (tracking requirements for new taint entry).
-    * **Record**: If taint data is passed to a **sink** (like `system`, `sprintf`) and confirmed as dangerous operation (better construct a PoC), record this complete propagation path, this is what you need to report in detail.
-3. **Path Break**: If taint is safely handled (like sanitization, validation) or not passed to any subfunction/sink within current function, terminate current path analysis and report clearly.
+**分析过程：**
+1. **分析当前函数**：使用 `r2` 工具分析当前函数代码，了解污点数据（通常在特定寄存器或内存地址中）如何被处理和传递。
+2. **决策：深入或记录**：
+    * **深入**：如果污点数据明确传递给子函数，简要预览子函数逻辑，并为子函数创建新的委托任务。任务描述必须包括：1) **目标函数**（如果可能，从反汇编中提供特定函数地址），2) **污点入口**（子函数中哪个寄存器/内存包含污点），3) **污点来源**（污点在父函数中如何产生），以及 4) **分析目标**（对新污点入口的追踪要求）。
+    * **记录**：如果污点数据传递给**汇聚点**（如 `system`、`sprintf`）并确认为危险操作（最好构造 PoC），记录这个完整的传播路径，这是你需要详细报告的内容。
+3. **路径中断**：如果污点被安全处理（如清理、验证）或在当前函数内未传递给任何子函数/汇聚点，终止当前路径分析并清楚报告。
 
-**Final Report Format:**
-* At the end of analysis, you need to present all discovered complete taint propagation paths in a clear tree diagram.
-* Each step **must** follow `'Step_number: address: three to five lines assembly code or pseudocode snippet --> step explanation'` format. **Code snippets must be real, verifiable, and critical to understanding data flow. Strictly forbidden to only provide explanations or conclusions without addresses and code.**
+**最终报告格式：**
+* 在分析结束时，你需要以清晰的树状图呈现所有发现的完整污点传播路径。
+* 每一步**必须**遵循 `'步骤编号: 地址: 三到五行汇编代码或伪代码片段 --> 步骤说明'` 格式。**代码片段必须是真实的、可验证的，并且对理解数据流至关重要。严禁只提供说明或结论而不提供地址和代码。**
 """
 
 class ExecutorAgent(BaseAgent):
@@ -280,6 +279,7 @@ def create_kb_agent_config(
     )
     return kb_agent_cfg
 
+
 def create_file_analysis_config(
     include_kb: bool,
     max_iterations: int = 30,
@@ -315,7 +315,7 @@ def create_file_analysis_config(
         hierarchical_kb_manager_tool_cfg = AssistantToolConfig(
             assistant_class=BaseAssistant, 
             sub_agent_config=kb_config,
-            description="Used to query all known information about this firmware's file system. Can query known findings for files and known findings for other files. You can prioritize querying known findings for files, then link to known findings for other files via the results. Note that no findings means there are currently no findings."
+            description="用于查询此固件文件系统的所有已知信息。可以查询文件的已知发现以及其他文件的已知发现。你可以优先查询文件的已知发现，然后通过结果链接到其他文件的已知发现。注意：没有发现意味着当前还没有发现。"
         )
         l1_tool_configs.append(hierarchical_kb_manager_tool_cfg)
 
@@ -334,12 +334,12 @@ def create_file_analysis_config(
         AssistantToolConfig(
             assistant_class=BaseAssistant,
             sub_agent_config=l1_agent_cfg,
-            description="The assistant can interact with files to perform specific file analysis tasks. Use case: When you need analysis results for a single-step task before deciding the next analysis task."
+            description="助手可以与文件交互以执行特定的文件分析任务。使用场景：当你需要单步任务的分析结果后再决定下一个分析任务时。"
         ),
         AssistantToolConfig(
             assistant_class=ParallelBaseAssistant,
             sub_agent_config=l1_agent_cfg,
-            description="Each assistant can interact with files, executing multiple file analysis sub-tasks in parallel. Use cases: 1. When a complex task needs to be broken down into multiple independent sub-tasks. 2. Sub-tasks have no strict execution order dependencies. 3. Recommended for large-scale and complex tasks to execute multiple sub-tasks in parallel, improving analysis efficiency."
+            description="每个助手可以与文件交互，并行执行多个文件分析子任务。使用场景：1. 当复杂任务需要分解为多个独立的子任务时。2. 子任务之间没有严格的执行顺序依赖。3. 建议对大规模和复杂任务并行执行多个子任务，提高分析效率。"
         )
     ]
 
@@ -476,8 +476,8 @@ class FirmwareMasterAgent:
 
     def run(self) -> str:
         initial_task = (
-            f"Please analyze the firmware comprehensively, combining it with the user's core requirements. Currently located in firmware directory: {os.path.basename(self.firmware_root_path)}, user's core requirement is: {self.user_input} "
-            f"Please start from this directory and analyze files and subdirectories layer by layer."
+            f"请结合用户的核心需求对固件进行全面分析。当前位于固件目录：{os.path.basename(self.firmware_root_path)}，用户的核心需求是：{self.user_input} "
+            f"请从此目录开始，逐层分析文件和子目录。"
         )
         start_time = time.time()
         analysis_summary = self.master_agent.run(user_input=initial_task)
@@ -521,14 +521,14 @@ class FirmwareMasterAgent:
         
         finding_details = {k: v for k, v in finding.items() if k in ['location','description', 'file_path', 'code_snippet', 'risk_score']}
         verification_finding_details = (
-            f"Verify the following finding:\n"
+            f"验证以下发现：\n"
             f"```json\n"
             f"{json.dumps(finding_details, indent=2, ensure_ascii=False)}\n"
             f"```\n"
-            f"**Requirements**:\n"
-            f"1.  **Focused Verification**: All your operations must revolve around verifying this finding.\n"
-            f"2.  **Evidence Support**: Your conclusions must be based on actual evidence returned by tools.\n"
-            f"3.  **No Unrelated Analysis**: Do not explore any other potential issues outside of this finding.\n"
+            f"**要求**：\n"
+            f"1.  **专注验证**：你的所有操作都必须围绕验证此发现进行。\n"
+            f"2.  **证据支持**：你的结论必须基于工具返回的实际证据。\n"
+            f"3.  **不做无关分析**：不要探索此发现之外的任何其他潜在问题。\n"
         )
 
         verification_task = DEFAULT_VERIFICATION_TASK_TEMPLATE.format(verification_finding_details=verification_finding_details)

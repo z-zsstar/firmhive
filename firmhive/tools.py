@@ -11,7 +11,7 @@ from agent.tools.basetool import ExecutableTool, FlexibleContext
 
 class GetContextInfoTool(ExecutableTool):
     name = "get_context_info"
-    description = "Get context information for the current analysis task, such as the file or directory being analyzed."
+    description = "获取当前分析任务的上下文信息，例如正在分析的文件或目录。"
     parameters: Dict[str, Any] = {
         "type": "object",
         "properties": {},
@@ -22,15 +22,15 @@ class GetContextInfoTool(ExecutableTool):
         file_path = self.context.get("file_path")
         current_dir = self.context.get("current_dir")
         base_path = self.context.get("base_path")
-        file_name_str = os.path.basename(file_path) if file_path else "Not specified"
-        dir_name_str = os.path.basename(current_dir) if current_dir else "Not specified"
-        rel_dir_path = os.path.relpath(current_dir, base_path) if current_dir and base_path else "Not specified"
+        file_name_str = os.path.basename(file_path) if file_path else "未指定"
+        dir_name_str = os.path.basename(current_dir) if current_dir else "未指定"
+        rel_dir_path = os.path.relpath(current_dir, base_path) if current_dir and base_path else "未指定"
         
         return (
-            f"Current analysis focus:\n"
-            f"- File: {file_name_str}\n"
-            f"- Directory: {dir_name_str}\n"
-            f"- Directory path relative to firmware root: {rel_dir_path}"
+            f"当前分析焦点：\n"
+            f"- 文件：{file_name_str}\n"
+            f"- 目录：{dir_name_str}\n"
+            f"- 相对于固件根目录的目录路径：{rel_dir_path}"
         )  
 
 class ShellExecutorTool(ExecutableTool):
@@ -45,18 +45,18 @@ class ShellExecutorTool(ExecutableTool):
         file_name = os.path.basename(file_path) if file_path else "Not specified"
         current_dir = self.context.get("current_dir", "Not specified")
 
-        self.description = f"""Execute read-only shell commands in the current directory ({os.path.basename(current_dir)}). 
-    **Warning:** This tool is strictly confined to the current working directory. All file operations must not reference parent or any other directories. It is recommended to use the `file` tool for exploration and identification within the current directory.
-    **Note:** All commands are executed in the current directory. All path arguments should be relative to the current directory. Paths containing '/' or '..' are forbidden.
-    Supported commands: {', '.join(self.ALLOWED_COMMANDS)}.
-    Output redirection ('>', '>>'), command chaining, and directory changes are prohibited."""
+        self.description = f"""在当前目录（{os.path.basename(current_dir)}）中执行只读 shell 命令。
+    **警告：** 此工具严格限制在当前工作目录内。所有文件操作不得引用父目录或任何其他目录。建议使用 `file` 工具在当前目录内进行探索和识别。
+    **注意：** 所有命令都在当前目录中执行。所有路径参数应相对于当前目录。禁止包含 '/' 或 '..' 的路径。
+    支持的命令：{', '.join(self.ALLOWED_COMMANDS)}。
+    禁止输出重定向（'>'、'>>'）、命令链接和目录更改。"""
 
         self.parameters = {
             "type": "object",
             "properties": {
                 "command": {
                     "type": "string",
-                    "description": f"The shell command to execute. The command will be executed in the '{os.path.basename(current_dir)}' directory. All paths in the command should be relative to this directory."
+                    "description": f"要执行的 shell 命令。命令将在 '{os.path.basename(current_dir)}' 目录中执行。命令中的所有路径应相对于此目录。"
                 }
             },
             "required": ["command"]
@@ -83,37 +83,37 @@ class ShellExecutorTool(ExecutableTool):
 
     def _is_safe_command(self, command: str) -> tuple[bool, str]:
         if not command or not command.strip():
-            return False, "Command cannot be empty."
+            return False, "命令不能为空。"
         
         base_path = self.context.get("base_path")
         current_dir = self.context.get("current_dir")
 
         if not base_path or not os.path.isdir(os.path.normpath(base_path)):
-            return False, "[Security Error] No valid firmware root directory (base_path) provided in the context."
+            return False, "[安全错误] 上下文中未提供有效的固件根目录（base_path）。"
         if not current_dir or not os.path.isdir(os.path.normpath(current_dir)):
-            return False, "[Security Error] No valid working directory (current_dir) provided in the context."
+            return False, "[安全错误] 上下文中未提供有效的工作目录（current_dir）。"
         
         norm_current_dir = os.path.normpath(current_dir)
         norm_base_path = os.path.normpath(base_path)
         if not norm_current_dir.startswith(norm_base_path):
-            return False, f"[Security Error] The current working directory '{current_dir}' is not within the firmware root directory '{base_path}'."
+            return False, f"[安全错误] 当前工作目录 '{current_dir}' 不在固件根目录 '{base_path}' 内。"
 
         for pattern in self.DANGEROUS_PATTERNS:
             if pattern in command:
-                return False, f"[Security Error] Command contains a forbidden pattern: '{pattern}'"
+                return False, f"[安全错误] 命令包含禁止的模式：'{pattern}'"
 
         try:
             tokens = shlex.split(command)
         except ValueError as e:
-            return False, f"Failed to parse command: {e}."
+            return False, f"解析命令失败：{e}。"
         
         if not tokens:
-            return False, "Invalid command."
+            return False, "无效的命令。"
         
         base_cmd = tokens[0]
         
         if base_cmd not in self.ALLOWED_COMMANDS:
-            return False, f"[Security Error] Command '{base_cmd}' is not in the list of allowed commands ({', '.join(sorted(self.ALLOWED_COMMANDS))})."
+            return False, f"[安全错误] 命令 '{base_cmd}' 不在允许的命令列表中（{', '.join(sorted(self.ALLOWED_COMMANDS))}）。"
         
         path_like_cmds = {'file', 'cat', 'head', 'tail', 'readelf', 'strings', 'ls'}
 
@@ -121,20 +121,20 @@ class ShellExecutorTool(ExecutableTool):
             for token in tokens[1:]:
                 if not token.startswith('-'):
                     if self._resolve_path(token, current_dir) is None:
-                        return False, f"[Security Error] Argument '{token}' resolves to a path outside the current working directory or contains illegal characters."
+                        return False, f"[安全错误] 参数 '{token}' 解析到当前工作目录之外的路径或包含非法字符。"
         elif base_cmd == 'find':
             path_arg_found = False
             for token in tokens[1:]:
                 if not token.startswith('-'):
                     if not path_arg_found:
                         if self._resolve_path(token, current_dir) is None:
-                            return False, f"[Security Error] The search path '{token}' for the find command resolves to a path outside the current working directory."
+                            return False, f"[安全错误] find 命令的搜索路径 '{token}' 解析到当前工作目录之外的路径。"
                         path_arg_found = True
         elif base_cmd == 'grep':
             if len(tokens) > 2 and not tokens[-1].startswith('-'):
                 path_token = tokens[-1]
                 if self._resolve_path(path_token, current_dir) is None:
-                    return False, f"[Security Error] The file path '{path_token}' for the grep command resolves to a path outside the current working directory."
+                    return False, f"[安全错误] grep 命令的文件路径 '{path_token}' 解析到当前工作目录之外的路径。"
         
         return True, ""
 
@@ -160,31 +160,31 @@ class ShellExecutorTool(ExecutableTool):
                 errors='ignore'
             )
             
-            output = f"Exit Code: {result.returncode}\n"
+            output = f"退出代码：{result.returncode}\n"
             if result.stdout:
-                output += f"Stdout:\n{result.stdout}\n"
+                output += f"标准输出：\n{result.stdout}\n"
             if result.stderr:
-                output += f"Stderr:\n{result.stderr}\n"
+                output += f"标准错误：\n{result.stderr}\n"
             
             return output
             
         except subprocess.TimeoutExpired: 
-            return f"[Error] Command '{command[:100]}...' timed out after {self.timeout}s."
+            return f"[错误] 命令 '{command[:100]}...' 在 {self.timeout}秒 后超时。"
         except Exception as e: 
-            return f"[Error] Command '{command[:100]}...' failed to execute: {e}"
+            return f"[错误] 命令 '{command[:100]}...' 执行失败：{e}"
 
 
 class Radare2Tool(ExecutableTool):
     name: str = "r2"
     description: str = """
-    Interacts with a Radare2 interactive session to analyze the current binary file. Note that this tool automatically establishes and maintains an r2 session for the current analysis focus file.
+    与 Radare2 交互式会话交互以分析当前二进制文件。注意，此工具会自动为当前分析焦点文件建立并维护 r2 会话。
 
-    Main features:
-    - Send Radare2 commands and get the output
-    - Session state is maintained between calls (for the same file)
-    - Supports decompilation using the r2ghidra plugin:
-    * Use the `pdg` command to decompile functions
-    * Provides C-like pseudocode output
+    主要功能：
+    - 发送 Radare2 命令并获取输出
+    - 会话状态在调用之间保持（对于同一文件）
+    - 支持使用 r2ghidra 插件进行反编译：
+    * 使用 `pdg` 命令反编译函数
+    * 提供类似 C 的伪代码输出
     
     """
     parameters: Dict[str, Any] = {
@@ -216,48 +216,48 @@ class Radare2Tool(ExecutableTool):
 
         file_path = self.context.get("file_path")
         if not file_path:
-            print("Error: Cannot initialize Radare2 without file_path in context.")
+            print("错误：无法在没有 file_path 的情况下初始化 Radare2。")
             return False
 
-        print(f"Initializing Radare2 session for: {file_path}...")
+        print(f"正在为 {file_path} 初始化 Radare2 会话...")
         try:
             self.r2 = r2pipe.open(file_path, flags=['-e', 'scr.interactive=false'])
-            print("Running initial analysis (aaa) for r2 main tool session...")
+            print("正在为 r2 主工具会话运行初始分析（aaa）...")
             self.r2.cmd('aaa')
-            print("Radare2 session initialized.")
+            print("Radare2 会话已初始化。")
             return True
         except Exception as e:
-            print(f"Error initializing Radare2 session: {e}")
+            print(f"初始化 Radare2 会话时出错：{e}")
             self.r2 = None
             return False
 
     def execute(self, command: str) -> str:
         if not self.r2:
-            print("Radare2 session not ready, attempting initialization...")
+            print("Radare2 会话未就绪，正在尝试初始化...")
             if not self._initialize_r2():
-                return "[Error] Radare2 session failed to initialize. Check file path and r2 installation."
+                return "[错误] Radare2 会话初始化失败。请检查文件路径和 r2 安装。"
 
         if not command:
-            return "[Error] No command provided to Radare2."
+            return "[错误] 未向 Radare2 提供命令。"
 
-        print(f"Executing r2 command: {command}")
+        print(f"执行 r2 命令：{command}")
         try:
             result = self.r2.cmd(command)
-            return result.strip() if result else f"[No output from {command} command]"
+            return result.strip() if result else f"[{command} 命令无输出]"
         except Exception as e:
-            print(f"Error executing Radare2 command '{command}': {e}. Resetting pipe.")
-            return f"[Error] Failed to execute command '{command}': {e}. Radare2 pipe might be unstable."
+            print(f"执行 Radare2 命令 '{command}' 时出错：{e}。正在重置管道。")
+            return f"[错误] 执行命令 '{command}' 失败：{e}。Radare2 管道可能不稳定。"
 
     def close(self):
         if self.r2:
-            print(f"Closing Radare2 pipe for {self.context.get('file_path', 'unknown file')}...")
+            print(f"正在关闭 {self.context.get('file_path', '未知文件')} 的 Radare2 管道...")
             try:
                 self.r2.quit()
             except Exception as e:
-                print(f"Error during r2.quit() for {self.context.get('file_path', 'unknown file')}: {e}")
+                print(f"为 {self.context.get('file_path', '未知文件')} 执行 r2.quit() 时出错：{e}")
             finally:
                 self.r2 = None
-                print("Radare2 pipe closed and r2 instance reset.")
+                print("Radare2 管道已关闭，r2 实例已重置。")
         else:
             pass
 
@@ -265,14 +265,14 @@ class Radare2Tool(ExecutableTool):
 class Radare2FileTargetTool(ExecutableTool):
     name: str = "r2_file_target"
     description: str = """
-    Interacts with a Radare2 interactive session to analyze a specified binary file. Note that this tool automatically establishes and maintains an r2 session for the target analysis object.
+    与 Radare2 交互式会话交互以分析指定的二进制文件。注意，此工具会自动为目标分析对象建立并维护 r2 会话。
 
-    Main features:
-    - Send Radare2 commands and get the output
-    - Session state is maintained between calls (for the same file)
-    - Supports decompilation using the r2ghidra plugin:
-    * Use the `pdg` command to decompile functions
-    * Provides C-like pseudocode output
+    主要功能：
+    - 发送 Radare2 命令并获取输出
+    - 会话状态在调用之间保持（对于同一文件）
+    - 支持使用 r2ghidra 插件进行反编译：
+    * 使用 `pdg` 命令反编译函数
+    * 提供类似 C 的伪代码输出
 
     """
     parameters: Dict[str, Any] = {
@@ -280,11 +280,11 @@ class Radare2FileTargetTool(ExecutableTool):
         "properties": {
             "file_name": {
                 "type": "string",
-                "description": "The name of the file to be analyzed. Provide the path relative to the firmware root directory, do not start with ./."
+                "description": "要分析的文件名称。提供相对于固件根目录的路径，不要以 ./ 开头。"
             },
             "command": {
                 "type": "string",
-                "description": "Command to interact directly with Radare2"
+                "description": "直接与 Radare2 交互的命令"
             }
         },
         "required": ["file_name", "command"]
@@ -307,32 +307,32 @@ class Radare2FileTargetTool(ExecutableTool):
             return True
 
         if self.r2:
-            print(f"Closing Radare2 session for previous file: {self.current_analyzed_file}")
+            print(f"正在关闭先前文件的 Radare2 会话：{self.current_analyzed_file}")
             self.close()
 
         if not file_path:
-            print("Error: Cannot initialize Radare2 without a valid file_path.")
+            print("错误：无法在没有有效 file_path 的情况下初始化 Radare2。")
             return False
         
         if not os.path.exists(file_path):
-            print(f"Error: File not found at {file_path}. Cannot initialize Radare2.")
+            print(f"错误：在 {file_path} 找不到文件。无法初始化 Radare2。")
             return False
 
 
-        print(f"Initializing Radare2 session for: {file_path}...")
+        print(f"正在为 {file_path} 初始化 Radare2 会话...")
         try:
             self.r2 = r2pipe.open(file_path, flags=['-e', 'scr.interactive=false'])
             if not self.r2:
-                print(f"Error: r2pipe.open failed for {file_path}. The file might not exist or r2 is not installed correctly.")
+                print(f"错误：为 {file_path} 执行 r2pipe.open 失败。文件可能不存在或 r2 未正确安装。")
                 self.current_analyzed_file = None
                 return False
-            print("Running initial analysis (aaa) for r2 file target tool...")
+            print("正在为 r2 文件目标工具运行初始分析（aaa）...")
             self.r2.cmd('aaa')
             self.current_analyzed_file = file_path
-            print(f"Radare2 session initialized successfully for: {file_path}")
+            print(f"Radare2 会话已成功初始化：{file_path}")
             return True
         except Exception as e:
-            print(f"Error initializing Radare2 session for {file_path}: {e}")
+            print(f"为 {file_path} 初始化 Radare2 会话时出错：{e}")
             self.r2 = None
             self.current_analyzed_file = None
             return False
@@ -340,59 +340,59 @@ class Radare2FileTargetTool(ExecutableTool):
     def execute(self, file_name: str, command: str) -> str:
         current_dir = self.context.get("current_dir")
         if not current_dir:
-            return "[Error] current_dir not found in context. Cannot determine file path."
+            return "[错误] 上下文中未找到 current_dir。无法确定文件路径。"
 
         if not file_name:
-            return "[Error] No file_name provided."
+            return "[错误] 未提供 file_name。"
         
         target_file_path = os.path.join(current_dir, file_name)
 
         if not self._initialize_r2_for_file(target_file_path):
-            return f"[Error] Radare2 session failed to initialize for {target_file_path}. Ensure the file exists and Radare2 is correctly configured."
+            return f"[错误] 为 {target_file_path} 初始化 Radare2 会话失败。请确保文件存在且 Radare2 配置正确。"
 
         if not self.r2:
-            return f"[Error] Radare2 session is not available for {target_file_path} even after initialization attempt."
+            return f"[错误] 即使在尝试初始化后，Radare2 会话对 {target_file_path} 仍不可用。"
 
         if not command:
-            return "[Error] No command provided to Radare2."
+            return "[错误] 未向 Radare2 提供命令。"
 
-        print(f"Executing r2 command: '{command}' on file '{target_file_path}'")
+        print(f"在文件 '{target_file_path}' 上执行 r2 命令：'{command}'")
         try:
             result = self.r2.cmd(command)
-            return result.strip() if result is not None else f"[No output from '{command}' command]"
+            return result.strip() if result is not None else f"['{command}' 命令无输出]"
         except Exception as e:
-            print(f"Error executing Radare2 command '{command}' on '{target_file_path}': {e}. Resetting pipe for this file.")
+            print(f"在 '{target_file_path}' 上执行 Radare2 命令 '{command}' 时出错：{e}。正在重置此文件的管道。")
             self.close()
-            return f"[Error] Failed to execute command '{command}' on '{target_file_path}': {e}. Pipe has been reset."
+            return f"[错误] 在 '{target_file_path}' 上执行命令 '{command}' 失败：{e}。管道已重置。"
 
     def close(self):
         if self.r2:
-            print(f"Closing Radare2 pipe for {self.current_analyzed_file}...")
+            print(f"正在关闭 {self.current_analyzed_file} 的 Radare2 管道...")
             try:
                 self.r2.quit()
             except Exception as e:
-                print(f"Error during r2.quit() for {self.current_analyzed_file}: {e}")
+                print(f"为 {self.current_analyzed_file} 执行 r2.quit() 时出错：{e}")
             finally:
                 self.r2 = None
                 self.current_analyzed_file = None
-                print("Radare2 pipe closed and state cleared.")
+                print("Radare2 管道已关闭，状态已清除。")
         else:
             pass
 
 
 class VulnerabilitySearchTool(ExecutableTool):
     name: str = "cve_search_nvd"
-    description: str = "Search for CVE vulnerability information related to software keywords using the NVD API 2.0. Results include CVE ID, description, and CVSSv3 score, sorted in descending order by score."
+    description: str = "使用 NVD API 2.0 搜索与软件关键词相关的 CVE 漏洞信息。结果包括 CVE ID、描述和 CVSSv3 分数，按分数降序排列。"
     parameters: Dict[str, Any] = {
         "type": "object",
         "properties": {
             "keyword_search": {
                 "type": "string",
-                "description": "Software name or keyword to search for in NVD (e.g., 'BusyBox 1.33.1', 'OpenSSL', 'Linux Kernel'). Include the version number in the keyword if you need to match a specific version via NVD's keyword search."
+                "description": "要在 NVD 中搜索的软件名称或关键词（例如，'BusyBox 1.33.1'、'OpenSSL'、'Linux Kernel'）。如果需要通过 NVD 的关键词搜索匹配特定版本，请在关键词中包含版本号。"
             },
              "max_results": {
                   "type": "integer",
-                  "description": "Limit the number of matching CVEs to return (the highest scored will be shown).",
+                  "description": "限制返回的匹配 CVE 数量（将显示得分最高的）。",
                   "default": 10,
                   "minimum": 1,
                   "maximum": 50

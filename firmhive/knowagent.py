@@ -12,36 +12,36 @@ DEFAULT_KB_FILE = "knowledge_base.jsonl"
 FINDING_SCHEMA: Dict[str, Dict[str, Any]] = {
     "name": {
         "type": "string", 
-        "description": "Define a unique identifier for the item. Suggested format: '<Type>-<Function/Module>'."
+        "description": "为项目定义唯一标识符。建议格式：'<类型>-<函数/模块>'。"
     },
     "location": {
         "type": "string",
-        "description": "Precise location of the code sink or key logic. Format: '<relative_file_path>:<line_number> [function_name] [address]'. Adapts to binary or script.\n"
+        "description": "代码汇聚点或关键逻辑的精确位置。格式：'<相对文件路径>:<行号> [函数名] [地址]'。适应二进制或脚本。\n"
     },
     "description": {
         "type": "string",
-        "description": "Describe in detail the findings or observations.\n"
+        "description": "详细描述发现或观察结果。\n"
     },
     "link_identifiers": {
         "type": "array",
         "items": {"type": "string"},
-        "description": "List of specific identifiers (NVRAM vars, function names, file paths) that connect this finding to others. AVOID generic terms.\n"
+        "description": "将此发现与其他发现连接的特定标识符列表（NVRAM 变量、函数名、文件路径）。避免使用通用术语。\n"
     },
     "code_snippet": {
         "type": "string",
-        "description": "The most relevant code snippet."
+        "description": "最相关的代码片段。"
     },
     "risk_score": {
         "type": "number",
-        "description": "Risk score (0.0-10.0)"
+        "description": "风险评分（0.0-10.0）"
     },
     "confidence": {
         "type": "number",
-        "description": "Confidence in the finding's accuracy and exploitability. (0.0-10.0)"
+        "description": "对发现准确性和可利用性的置信度（0.0-10.0）"
     },
     "notes": {
         "type": "string",
-        "description": "For human analysts. Includes assumptions made, remaining questions, or suggestions for the next analysis step \n"
+        "description": "供人工分析师参考。包括做出的假设、剩余问题或下一步分析的建议\n"
     }
 }
 
@@ -99,7 +99,7 @@ class KnowledgeBaseMixin:
 
 class StoreFindingsTool(ExecutableTool, KnowledgeBaseMixin):
     name: str = "StoreStructuredFindings"
-    description: str = "Stores structured firmware analysis findings into the knowledge base in append mode. Each finding must include detailed path and condition constraints to ensure traceability and verifiability."
+    description: str = "以追加模式将结构化的固件分析发现存储到知识库中。每个发现都必须包含详细的路径和条件约束，以确保可追溯性和可验证性。"
     parameters: Dict = {
         "type": "object",
         "properties": {
@@ -110,7 +110,7 @@ class StoreFindingsTool(ExecutableTool, KnowledgeBaseMixin):
                     "properties": FINDING_SCHEMA,
                     "required": FINDING_SCHEMA_REQUIRED_FIELDS
                 },
-                "description": "A list of findings to be stored. Each object in the list should follow the defined schema. Contextual information (like 'file_path') will be added automatically by the tool."
+                "description": "要存储的发现列表。列表中的每个对象都应遵循定义的模式。工具将自动添加上下文信息（如 'file_path'）。"
             }
         },
         "required": ["findings"]
@@ -183,18 +183,18 @@ class StoreFindingsTool(ExecutableTool, KnowledgeBaseMixin):
 
 class QueryFindingsTool(ExecutableTool, KnowledgeBaseMixin):
     name: str = "QueryFindings"
-    description: str = "Retrieves matching findings from the knowledge base based on a specified field name (query_key) and expected value (query_value). It iterates through each finding record in the knowledge base for a match."
+    description: str = "根据指定的字段名（query_key）和期望值（query_value）从知识库中检索匹配的发现。它会遍历知识库中的每条发现记录以查找匹配。"
 
     parameters: Dict = {
         "type": "object",
         "properties": {
             "query_key": {
                 "type": "string",
-                "description": "The name of the field in the finding record to query.",
+                "description": "要查询的发现记录中的字段名称。",
                 "enum": ["file_path", "link_identifiers", "notes"]
             },
             "query_value": {
-                "description": "The value to match. For the 'link_identifiers' list, this should be a single keyword string; for other fields, a direct equality comparison will be performed."
+                "description": "要匹配的值。对于 'link_identifiers' 列表，这应该是单个关键字字符串；对于其他字段，将执行直接相等比较。"
             }
         },
         "required": ["query_key", "query_value"]
@@ -253,21 +253,21 @@ class QueryFindingsTool(ExecutableTool, KnowledgeBaseMixin):
 class ListUniqueValuesTool(ExecutableTool, KnowledgeBaseMixin):
     name: str = "ListUniqueValues"
     description: str = """
-    Lists all unique values for a specified field in the knowledge base, useful for exploratory analysis and building more precise queries.
+    列出知识库中指定字段的所有唯一值，对探索性分析和构建更精确的查询很有用。
 
-    Typical use cases:
-    - List 'link_identifiers' to discover key identifiers and correlation points in the code.
-    - Query the 'notes' field to get more context and related information.
-    - View 'file_path' to understand the scope of analyzed files.
-    - Get a list of all files in a specific directory.
-    - Review all known vulnerability types and risk assessment distributions.
+    典型用例：
+    - 列出 'link_identifiers' 以发现代码中的关键标识符和关联点。
+    - 查询 'notes' 字段以获取更多上下文和相关信息。
+    - 查看 'file_path' 以了解已分析文件的范围。
+    - 获取特定目录中所有文件的列表。
+    - 查看所有已知的漏洞类型和风险评估分布。
     """
     parameters: Dict = {
         "type": "object",
         "properties": {
             "target_key": {
                 "type": "string",
-                "description": "The name of the field in the finding record for which to query unique values (e.g., 'file_path', 'link_identifiers', 'notes')."
+                "description": "要查询唯一值的发现记录中的字段名称（例如，'file_path'、'link_identifiers'、'notes'）。"
             }
         },
         "required": ["target_key"]
@@ -326,57 +326,57 @@ class ListUniqueValuesTool(ExecutableTool, KnowledgeBaseMixin):
 
 
 DEFAULT_KB_SYSTEM_PROMPT = f"""
-You are a firmware analysis knowledge base agent, responsible for efficiently and accurately handling the storage, querying, and correlation analysis of firmware analysis findings. When there is no valid and risk information or it is irrelevant to the user's request, do not perform any storage or query operations. Your primary principle is **quality over quantity**; only findings that are **practically exploitable** should be stored.
+你是一个固件分析知识库代理，负责高效准确地处理固件分析发现的存储、查询和关联分析。当没有有效的风险信息或与用户请求无关时，不要执行任何存储或查询操作。
 
-## **Preparation Before Storing**
-**Before each storage operation, it is strongly recommended to first use the `ListUniqueValues` tool to understand the overall state of the knowledge base:**
-- Use `ListUniqueValues` to query the 'link_identifiers' field to check for potentially related findings. If any exist, proactively analyze them.
-- Use `ListUniqueValues` to query the 'notes' field to get remarks and see if they are referenced by other findings.
+## **存储前的准备工作**
+**在每次存储操作之前，强烈建议首先使用 `ListUniqueValues` 工具了解知识库的整体状态：**
+- 使用 `ListUniqueValues` 查询 'link_identifiers' 字段，检查是否存在潜在相关的发现。如果有，主动分析它们。
+- 使用 `ListUniqueValues` 查询 'notes' 字段以获取备注，查看它们是否被其他发现引用。
 
-## **Preparation Before Querying**
-- Use `ListUniqueValues` to query the 'file_path' field to understand the scope of analyzed files.
-- Use `ListUniqueValues` to query the 'link_identifiers' field to check for potentially related findings. If any exist, proactively analyze them.
+## **查询前的准备工作**
+- 使用 `ListUniqueValues` 查询 'file_path' 字段以了解已分析文件的范围。
+- 使用 `ListUniqueValues` 查询 'link_identifiers' 字段，检查是否存在潜在相关的发现。如果有，主动分析它们。
 
-This exploratory analysis helps to:
-- Precisely construct subsequent query conditions.
-- Discover potential correlation clues.
-- Avoid missing important information.
-- Improve query efficiency and accuracy.
+这种探索性分析有助于：
+- 精确构建后续查询条件。
+- 发现潜在的关联线索。
+- 避免遗漏重要信息。
+- 提高查询效率和准确性。
 
-## Tool Usage Guide
+## 工具使用指南
 
-### 1. Store Findings (StoreStructuredFindings)
-- **Purpose**: Store structured analysis findings in the knowledge base. **Strictly filter for findings that are practically exploitable and have a complete, verifiable attack chain.**
-- **Key Requirements**:
-  - Establish correlations by storing lists of keywords with the same meaning.
-  - In the `description`, detail the **complete and verifiable attack chain**, trigger conditions, and exploitability analysis.
-  - Use `link_identifiers` and `notes` to establish cross-file correlations.
-  - If you discover more credible, deeper findings through correlation, you must proactively store them, especially for tracing taint flow between components to determine the complete vulnerability chain, provided you are certain they are truly related.
+### 1. 存储发现 (StoreStructuredFindings)
+- **目的**：将结构化的分析发现存储到知识库中。**严格筛选实际可利用且具有完整、可验证攻击链的发现。**
+- **关键要求**：
+  - 通过存储具有相同含义的关键字列表来建立关联。
+  - 在 `description` 中详细说明**完整且可验证的攻击链**、触发条件和可利用性分析。
+  - 使用 `link_identifiers` 和 `notes` 建立跨文件关联。
+  - 如果通过关联发现更可信、更深层的发现，你必须主动存储它们，特别是追踪组件之间的污点流以确定完整的漏洞链，前提是你确信它们确实相关。
 
-### 2. Query Findings (QueryFindings)
-- **Purpose**: Query for findings in the knowledge base based on specific criteria.
-- **Best Practices**:
-  - **Pre-query Exploration**: First, use `ListUniqueValues` to understand the range of queryable values, such as for `link_identifiers`.
-  - Establish correlations through the `link_identifiers` and `notes` fields.
-  - Value matching only supports exact matches, not fuzzy matching.
-  - **When Query is Empty**: Clearly state, "No relevant findings in the knowledge base, further analysis may be required."
+### 2. 查询发现 (QueryFindings)
+- **目的**：根据特定条件在知识库中查询发现。
+- **最佳实践**：
+  - **查询前探索**：首先使用 `ListUniqueValues` 了解可查询值的范围，例如 `link_identifiers`。
+  - 通过 `link_identifiers` 和 `notes` 字段建立关联。
+  - 值匹配仅支持精确匹配，不支持模糊匹配。
+  - **当查询为空时**：明确说明，"知识库中没有相关发现，可能需要进一步分析。"
 
-### 3. List Unique Values (ListUniqueValues)
-- **Purpose**: Explore the unique values of a specific field in the knowledge base.
-- **Core Importance**: This is a necessary prerequisite for precise querying; without it, precise queries are impossible.
-- **Use Cases**:
-  - **Pre-query Preparation**: Understand the content distribution and available query conditions of the knowledge base.
-  - Discover related keyword lists and check for correlations by listing the `link_identifiers` field.
-  - Find related findings and important context by listing the `notes` field.
-  - Identify duplicate or similar findings.
+### 3. 列出唯一值 (ListUniqueValues)
+- **目的**：探索知识库中特定字段的唯一值。
+- **核心重要性**：这是精确查询的必要前提；没有它，精确查询是不可能的。
+- **使用场景**：
+  - **查询前准备**：了解知识库的内容分布和可用查询条件。
+  - 通过列出 `link_identifiers` 字段发现相关关键字列表并检查关联。
+  - 通过列出 `notes` 字段查找相关发现和重要上下文。
+  - 识别重复或相似的发现。
 
-## **Absolute Prohibitions**
-1. **No Fabrication of Information**: All findings must be based on actual code analysis results. Do not add any content not found in the actual analysis.
-2. **No Guessing or Speculation**: Only record findings supported by a **complete and verifiable evidence chain**. Avoid using uncertain terms like "possibly," "seems," or "speculated."
-3. **No Theoretical Findings**: Do not store findings about bad practices (e.g., using `strcpy`) unless you can **prove they lead to an exploitable vulnerability**. Partial or incomplete paths are not acceptable.
-4. **Accurately Distinguish Analysis Status**: **"No findings"** is not the same as **"no issues."** An empty knowledge base indicates that the analysis is not yet complete or is in its preliminary stages.
+## **绝对禁止事项**
+1. **不得捏造信息**：所有发现都必须基于实际的代码分析结果。不要添加实际分析中未发现的任何内容。
+2. **不得猜测或推测**：只记录由**完整且可验证的证据链**支持的发现。避免使用"可能"、"似乎"或"推测"等不确定的术语。
+3. **不得记录理论发现**：不要存储关于不良实践（例如使用 `strcpy`）的发现，除非你能**证明它们会导致可利用的漏洞**。部分或不完整的路径是不可接受的。
+4. **准确区分分析状态**：**"没有发现"**与**"没有问题"**不同。空的知识库表明分析尚未完成或处于初步阶段。
 
-Remember: Your work directly impacts the quality and efficiency of firmware security analysis. Maintain a professional, accurate, and systematic approach. Never fabricate or guess any information. When information is insufficient to prove exploitability, honestly report the analysis status and its limitations.
+记住：你的工作直接影响固件安全分析的质量和效率。保持专业、准确和系统的方法。永远不要捏造或猜测任何信息。当信息不足以证明可利用性时，诚实地报告分析状态及其局限性。
 """
 
 DEFAULT_KB_TOOLS = [StoreFindingsTool, QueryFindingsTool, ListUniqueValuesTool]

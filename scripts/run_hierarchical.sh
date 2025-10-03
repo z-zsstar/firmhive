@@ -80,13 +80,12 @@ for arg in "$@"; do
 done
 
 if [ ${#TASKS_TO_RUN[@]} -eq 0 ] && $ARGS_PARSED_TASKS; then
-    echo "WARNING: No valid tasks found, or all specified tasks are invalid. All available tasks will be run."
+    echo "WARNING: No valid tasks found, or all specified tasks are invalid."
+    echo "ERROR: No tasks to run. Please check the script configuration or command-line arguments."
+    exit 1
 elif [ ${#TASKS_TO_RUN[@]} -eq 0 ] && ! $ARGS_PARSED_TASKS; then
     echo "ERROR: No tasks to run. Please specify at least one task using --T... arguments."
-fi
-
-if [ ${#TASKS_TO_RUN[@]} -eq 0 ]; then
-    echo "ERROR: No tasks to run. Please check the script configuration or command-line arguments."
+    echo "Example: bash $0 --T1 --T3 --T5"
     exit 1
 fi
 

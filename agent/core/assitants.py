@@ -11,21 +11,21 @@ from agent.tools.basetool import FlexibleContext, ExecutableTool
 class BaseAssistant(ExecutableTool):
     name = "TaskDelegator"
     description = """
-    Task delegator - used to delegate a subtask to a sub-agent for processing.
+    任务委托器 - 用于将子任务委托给子代理进行处理。
 
-    Applicable scenarios:
-    Decide the next analysis step only after obtaining the result of a single-step task.
+    适用场景：
+    在获得单步任务的结果后再决定下一个分析步骤。
     """
     parameters = {
         "type": "object",
         "properties": {
             "task": {
                 "type": "string",
-                "description": "Detailed description of the subtask to be executed. Please specify the analysis object."
+                "description": "要执行的子任务的详细描述。请指定分析对象。"
             },
             "run_in_background": {
                 "type": "boolean",
-                "description": "Whether to run this task in the background.",
+                "description": "是否在后台运行此任务。",
                 "default": False
             }
         },
@@ -86,12 +86,12 @@ class BaseAssistant(ExecutableTool):
         """
         task = task_details.get("task")
 
-        usr_init_msg_content = usr_init_msg if usr_init_msg else "No user initial request provided"
-        task_content = task if task else "No task provided"
+        usr_init_msg_content = usr_init_msg if usr_init_msg else "未提供用户初始请求"
+        task_content = task if task else "未提供任务"
 
         return (
-            f"User initial request:\n{usr_init_msg_content}\n"
-            f"Current specific task:\n{task_content}"
+            f"用户初始请求：\n{usr_init_msg_content}\n"
+            f"当前具体任务：\n{task_content}"
         )
 
     def execute(self, **kwargs: Any) -> str:
@@ -109,7 +109,7 @@ class BaseAssistant(ExecutableTool):
             task_for_error_log = str(task) if task else "Not extracted"
 
             if not task:
-                return "Error: Failed to extract 'task' for sub-agent from task input."
+                return "错误：无法从任务输入中为子代理提取 'task'。"
 
             full_task_prompt = self._build_sub_agent_prompt(usr_init_msg, **task_details)
 
@@ -117,7 +117,7 @@ class BaseAssistant(ExecutableTool):
             try:
                 sub_agent_prepared_context = self._prepare_sub_agent_context(sub_agent_base_context, **task_details)
             except Exception as e:
-                return f"Error: {str(e)}"
+                return f"错误：{str(e)}"
 
             sub_agent_instance_name = f"{self.name}_sub_agent"
 
@@ -139,27 +139,27 @@ class BaseAssistant(ExecutableTool):
 
         except Exception as e:
             error_snippet = task_for_error_log[:70]
-            error_message_for_return = f"Error: {self.name} failed to execute subtask (task snippet: '{error_snippet}'): {type(e).__name__} - {str(e)}"
+            error_message_for_return = f"错误：{self.name} 执行子任务失败（任务片段：'{error_snippet}'）：{type(e).__name__} - {str(e)}"
 
-            log_error_message = f"Error in {self.name} during sub-task preparation or delegation (task snippet: '{error_snippet}...'): {type(e).__name__} - {str(e)}"
+            log_error_message = f"{self.name} 在子任务准备或委托期间出错（任务片段：'{error_snippet}...'）：{type(e).__name__} - {str(e)}"
             logger = getattr(self, 'logger', None)
             if logger:
                 logger.error(log_error_message, exc_info=True)
             else:
-                print(f"ERROR in {self.name}: {log_error_message}")
+                print(f"{self.name} 错误：{log_error_message}")
                 print(traceback.format_exc())
-            return f"An error occurred while executing the subtask: {error_message_for_return}"
+            return f"执行子任务时发生错误：{error_message_for_return}"
 
 
 class ParallelBaseAssistant(ExecutableTool):
     name = "ParallelTaskDelegator"
     description = """
-    Task delegator - used to distribute multiple subtasks to sub-agents for parallel execution.
+    任务委托器 - 用于将多个子任务分配给子代理并行执行。
 
-    Applicable scenarios:
-    1. Need to break down a complex task into multiple independent subtasks for processing.
-    2. No strict execution order dependencies between subtasks.
-    3. Recommended for large-scale and complex tasks, can execute multiple subtasks in parallel to improve efficiency.
+    适用场景：
+    1. 需要将复杂任务分解为多个独立的子任务进行处理。
+    2. 子任务之间没有严格的执行顺序依赖。
+    3. 建议用于大规模和复杂任务，可以并行执行多个子任务以提高效率。
     """
     parameters = {
         "type": "object",
@@ -168,13 +168,13 @@ class ParallelBaseAssistant(ExecutableTool):
                 "type": "array",
                 "items": {
                     "type": "string",
-                    "description": "Detailed description of the subtask to be executed. Each task description is independent and should specify the analysis object."
+                    "description": "要执行的子任务的详细描述。每个任务描述都是独立的，应指定分析对象。"
                 },
-                "description": "A list of independent task descriptions to be distributed to sub-agents for parallel execution."
+                "description": "要分配给子代理并行执行的独立任务描述列表。"
             },
             "run_in_background": {
                 "type": "boolean",
-                "description": "Whether to run this task in the background.",
+                "description": "是否在后台运行此任务。",
                 "default": False
             }
         },
@@ -238,12 +238,12 @@ class ParallelBaseAssistant(ExecutableTool):
         """
         task = task_details.get("task")
 
-        usr_init_msg_content = usr_init_msg if usr_init_msg else "No user initial request provided"
-        task_content = task if task else "No task provided"
+        usr_init_msg_content = usr_init_msg if usr_init_msg else "未提供用户初始请求"
+        task_content = task if task else "未提供任务"
 
         return (
-            f"User initial request:\n{usr_init_msg_content}\n\n"
-            f"Current specific task:\n{task_content}"
+            f"用户初始请求：\n{usr_init_msg_content}\n\n"
+            f"当前具体任务：\n{task_content}"
         )
 
     def _execute_single_task_in_thread(self, task: Union[str, Dict[str, Any]], task_index: int, results_list: list):
@@ -260,7 +260,7 @@ class ParallelBaseAssistant(ExecutableTool):
             task_for_error_log = str(task_str) if task_str else f"Task #{task_index + 1} failed to extract"
 
             if not task_str:
-                error_message = f"Error: Failed to extract 'task' for sub-agent in parallel task list item #{task_index + 1}."
+                error_message = f"错误：无法在并行任务列表项 #{task_index + 1} 中为子代理提取 'task'。"
                 logger = getattr(self, 'logger', None)
                 if logger: logger.error(error_message)
                 else: print(error_message)
@@ -282,7 +282,7 @@ class ParallelBaseAssistant(ExecutableTool):
                     **task_details_with_index
                 )
             except Exception as e:
-                results_list[task_index] = f"Error: {str(e)}"
+                results_list[task_index] = f"错误：{str(e)}"
                 return
 
             sub_agent_instance_name = f"{self.name}_task{task_index+1}"
@@ -305,15 +305,15 @@ class ParallelBaseAssistant(ExecutableTool):
 
         except Exception as e:
             error_snippet = str(task_for_error_log)[:50]
-            error_string_for_result = f"Error: Parallel subtask #{task_index + 1} of {self.name} failed ({type(e).__name__}): {str(e)}"
+            error_string_for_result = f"错误：{self.name} 的并行子任务 #{task_index + 1} 失败（{type(e).__name__}）：{str(e)}"
             results_list[task_index] = error_string_for_result
 
-            log_error_message = f"Error in {self.name} during parallel sub-task #{task_index + 1} (snippet: '{error_snippet}...'): {type(e).__name__} - {str(e)}"
+            log_error_message = f"{self.name} 在并行子任务 #{task_index + 1} 期间出错（片段：'{error_snippet}...'）：{type(e).__name__} - {str(e)}"
             logger = getattr(self, 'logger', None)
             if logger:
                 logger.error(log_error_message, exc_info=True)
             else:
-                print(f"ERROR in {self.name} (task #{task_index+1}): {log_error_message}")
+                print(f"{self.name}（任务 #{task_index+1}）错误：{log_error_message}")
 
     def execute(self, **kwargs: Any) -> str:
         # Check if this should run in background
@@ -350,8 +350,8 @@ class ParallelBaseAssistant(ExecutableTool):
             }
 
             if task_result_or_error is None:
-                task_entry["error_details"] = "Failed to get task result (thread may not have returned value correctly)"
-            elif isinstance(task_result_or_error, str) and task_result_or_error.startswith("Error:"):
+                task_entry["error_details"] = "获取任务结果失败（线程可能未正确返回值）"
+            elif isinstance(task_result_or_error, str) and task_result_or_error.startswith("错误："):
                 task_entry["error_message"] = task_result_or_error
             else:
                 task_entry["result"] = task_result_or_error

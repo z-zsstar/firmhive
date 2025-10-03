@@ -4,6 +4,8 @@
 
 **FirmHive** is an automated firmware vulnerability analysis system powered by LLM agents. It employs a hierarchical multi-agent architecture to systematically analyze firmware images, identify security vulnerabilities, and generate detailed, verified reports. It is the practical implementation of the HiveMind architecture described in our paper.
 
+> **🌏 Chinese Version Available**: A fully localized Chinese version is available on the `hivemind_cn` branch. All system prompts, task descriptions, tool descriptions, and documentation have been translated to Chinese. To use it: `git checkout hivemind_cn`
+
 ### Key Features
 
 - 🌳 **Recursive Delegation Engine (RDE)**: The core engine in `agent/core/` that dynamically spawns a tree of agents, enabling deep and broad analysis that adapts to the firmware's structure.

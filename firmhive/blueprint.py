@@ -29,8 +29,8 @@ DEFAULT_VERIFICATION_TASK_TEMPLATE = (
     "2.  **逻辑审查**：不要仅仅确认代码的存在；你必须理解其执行逻辑。仔细检查条件语句、数据清理以及决定代码路径是否可达的其他因素。\n"
     "3.  **可利用性验证**：通过确认以下内容来验证漏洞是否**实际可利用**：\n"
     "    - **输入可控性**：攻击者可以控制污染的输入。\n"
-    "    - **路径可达性**：在现实条件下可以到达易受攻击的代码路径。\n"
-    "    - **实际影响**：汇聚操作可能造成实际的安全损害。\n"
+    "    - **路径可达性**：在现实条件下可以到达易受攻击的路径。在你的分析中，请明确定义并陈述评估此漏洞所使用的攻击者模型（例如：未经身份验证的远程攻击者、已通过身份验证的本地用户等）。\n"
+    "    - **实际影响**：操作可能造成实际的安全损害。\n"
     "4.  **完整攻击链**：- **需要完整路径**：部分或推测性路径是不可接受的。你必须提供完整、经过验证的链。验证从攻击者控制的输入到危险汇聚点的**完整传播路径**，每一步都有证据支持。\n\n"
     "**注意**：警报中的函数名可能来自反编译。请仔细搜索；不要仅仅因为它们不在符号表或字符串中就轻易断定它们不存在。\n\n"
     "{verification_finding_details}\n"
@@ -40,7 +40,7 @@ DEFAULT_VERIFICATION_INSTRUCTION_TEMPLATE = (
     "{verification_task}\n"
     "**提供结论**：在分析结束时，`final_response` 必须是包含以下字段的 JSON 对象：\n"
     "    - `accuracy`: (字符串) 对警报描述准确性的评估。必须是 'accurate'（准确）、'inaccurate'（不准确）或 'partially'（部分准确）。\n"
-    "    - `vulnerability`: (布尔值) 判断该描述是否足以构成真实漏洞。必须是 True 或 False。前提条件是攻击者是已连接到设备并拥有有效登录凭据的用户。\n"
+    "    - `vulnerability`: (布尔值) 判断该描述是否足以构成真实漏洞。必须是 True 或 False。在你的理由中，请明确说明你评估时所基于的攻击者前提条件。\n"
     "    - `risk_level`: (字符串) 如果 `vulnerability` 为 `true`，则为漏洞的风险级别。必须是 'Low'（低）、'Medium'（中）或 'High'（高）。\n"
     "    - `reason`: (字符串) 对你判断的详细解释，必须支持以上所有结论。对于确认为真实漏洞的发现，此字段还必须提供可重现的攻击载荷或概念验证（PoC）步骤，清楚地描述如何利用该漏洞。\n"
 )
@@ -49,19 +49,20 @@ DEFAULT_VERIFICATION_INSTRUCTION_TEMPLATE = (
 SHARED_RESPONSE_FORMAT_BLOCK = """
 每个发现必须包含以下**核心字段**：
 - **`description`**：对发现的详细描述，必须包括：
-* **完整且可验证的攻击链**：从攻击者可控源到危险汇聚点的具体污点传播路径，每一步都有证据支持。
-* **精确的触发条件**：到达易受攻击代码路径所需的确切条件。
-* **可利用性分析**：清楚说明*为什么*这是可利用的（例如，缺少清理、逻辑缺陷）。
+* 问题的具体表现和触发条件
+* 详细的约束条件和边界检查情况
+* 潜在的攻击和利用方式
+* 相关的代码逻辑或技术细节
 
-- **`link_identifiers`**：特定的 NVRAM 或 ENV 变量名、文件路径、IPC 套接字路径和自定义共享函数符号。
-- **`location`**：代码汇聚点或关键逻辑的精确位置。
-- **`code_snippet`**：返回完整的相关代码片段，展示漏洞。
+- **`link_identifiers`**：特定的 NVRAM 或 ENV 变量名、文件路径、IPC 套接字路径和自定义共享函数符号，确保精准追踪跨文件、跨进程的数据流与交互。
+- **`location`**：精确位置（文件:行号 函数名 地址）
+- **`code_snippet`**：返回完整的相关代码片段，展示漏洞的触发条件和利用方式。
 - **`risk_score`**：风险评分（0.0-10.0）。**只有具有经过验证的完整攻击链和明确安全影响的发现才能得分 >= 7.0。**
 - **`confidence`**：对发现准确性和可利用性分析的置信度（0.0-10.0）。**得分 >= 8.0 需要从源到汇聚点的完整、可验证的攻击链。**
-- **`notes`**：供人工分析师参考。包括：需要进一步验证的假设、相关文件或函数、后续分析的建议方向。
+- **`notes`**：其他重要信息，供人工分析师参考包括：需要进一步验证的假设，发现的关联文件或函数，建议的后续分析方向
 
 #### 关键原则：
-- **可利用性是必须的**：只报告实际可利用的发现。理论上的弱点或不良实践（如使用 `strcpy`）是不够的，除非你能证明它们会导致漏洞。
+- **可利用性是必须的**：如果用户要求只报告实际可利用的攻击链，则理论上的弱点或不良实践（如使用 `strcpy`）是不够的，除非你能证明它们会导致漏洞。
 - **证据优于推测**：所有声明都必须由工具的证据支持。如果缺少证据，请明确说明。不要猜测。
 """
 
@@ -171,7 +172,7 @@ class ExecutorAgent(BaseAgent):
         self.current_dir = context.get("current_dir")
 
         tools_to_pass = tools if tools is not None else DEFAULT_TOOL_CLASSES
-        self.messages_filters = messages_filters if messages_filters else [{'from': context.get('base_path')+os.path.sep, 'to': ''}, {'from': 'user_name', 'to': 'user'}] if context and context.get('base_path') else []
+        self.messages_filters = messages_filters if messages_filters else [{'from': context.get('base_path')+os.path.sep, 'to': ''}, {'from': 'zxr', 'to': 'user'}] if context and context.get('base_path') else []
         
         super().__init__(
             tools=tools_to_pass, 
@@ -203,7 +204,7 @@ class PlannerAgent(BaseAgent):
         self.current_dir = context.get("current_dir")
 
         tools_to_pass = tools if tools is not None else DEFAULT_TOOL_CLASSES
-        self.messages_filters = messages_filters if messages_filters else [{'from': context.get('base_path')+os.path.sep, 'to': ''}, {'from': 'user_name', 'to': 'user'}] if context and context.get('base_path') else []
+        self.messages_filters = messages_filters if messages_filters else [{'from': context.get('base_path')+os.path.sep, 'to': ''}, {'from': 'zxr', 'to': 'user'}] if context and context.get('base_path') else []
         
         super().__init__(
             tools=tools_to_pass, 
@@ -268,7 +269,7 @@ def _create_nested_call_chain_config(max_iterations: int, max_depth: int = 4) ->
     return current_config
 
 def create_kb_agent_config(
-    max_iterations: int = 30,
+    max_iterations: int = 50,
 ) -> AgentConfig:
 
     kb_agent_cfg = AgentConfig(
@@ -282,7 +283,7 @@ def create_kb_agent_config(
 
 def create_file_analysis_config(
     include_kb: bool,
-    max_iterations: int = 30,
+    max_iterations: int = 50,
     main_system_prompt: Optional[str] = None, 
     sub_level_system_prompt: Optional[str] = None,
 ) -> AgentConfig:
@@ -344,7 +345,7 @@ def create_file_analysis_config(
     ]
 
     file_analyzer_config = AgentConfig(
-        agent_class=PlannerAgent,
+        agent_class=PlannerAgent if include_kb else ExecutorAgent,
         tool_configs=l0_tool_configs,
         system_prompt=effective_main_prompt, 
         max_iterations=max_iterations
@@ -355,7 +356,7 @@ def create_file_analysis_config(
 def create_firmware_analysis_blueprint(
     include_kb: bool = True,
     max_levels: int = 4,
-    max_iterations_per_agent: int = 30,
+    max_iterations_per_agent: int = 50,
 ) -> AgentConfig:
     """
     Creates a multi-layered, planner-executor nested firmware analysis agent configuration.
@@ -443,7 +444,7 @@ class FirmwareMasterAgent:
         output_dir: str,
         user_input: str,
         max_levels_for_blueprint: int = 4,
-        max_iterations_per_agent: int = 30,
+        max_iterations_per_agent: int = 50,
         agent_instance_name: Optional[str] = "FirmwareMasterAgent",
     ):
         if not os.path.isdir(firmware_root_path):
@@ -519,7 +520,7 @@ class FirmwareMasterAgent:
         finding_name_for_log = finding.get('name') or finding.get('description', 'untitled_finding')[:50].replace('/', '_')
         print(f"\n>> Starting verification: {finding_name_for_log}")
         
-        finding_details = {k: v for k, v in finding.items() if k in ['location','description', 'file_path', 'code_snippet', 'risk_score']}
+        finding_details = {k: v for k, v in finding.items() if k in ['name', 'location', 'description', 'file_path', 'code_snippet', 'risk_score', 'notes']}
         verification_finding_details = (
             f"验证以下发现：\n"
             f"```json\n"
@@ -732,7 +733,7 @@ class FirmwareMasterAgent:
             f"Total Model Token Usage: {total_tokens}\n"
         )
         try:
-            with open(summary_path, 'w', encoding='utf-8') as f:
+            with open(summary_path, 'a', encoding='utf-8') as f:
                 f.write(summary_content)
             print(f"\nSummary information updated: {summary_path}")
             print(summary_content)

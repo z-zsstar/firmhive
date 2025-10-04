@@ -370,7 +370,7 @@ class BaseAgent(JSONOutputLLM):
                 full_content += "- 在 action_input 中设置 `run_in_background: true` 可异步运行任务。\n"
                 full_content += "- 后台任务完成时，结果会自动注入。\n"
                 full_content += "- 当需要后台结果才能继续时，使用 'wait' 动作。\n\n"
-                full_content += "调度策略（避免遗漏和重复，最大化效率）：\n"
+                full_content += "调度策略（避免遗漏和重复分析的同时，最大化效率）：\n"
                 full_content += "1. 识别独立任务，如果不立即需要结果，在后台启动它们。\n"
                 full_content += "2. 在后台任务并行运行时继续其他工作。\n"
                 full_content += "3. 当依赖任务需要后台结果时使用 'wait'。\n"

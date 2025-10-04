@@ -16,7 +16,7 @@ FINDING_SCHEMA: Dict[str, Dict[str, Any]] = {
     },
     "location": {
         "type": "string",
-        "description": "代码汇聚点或关键逻辑的精确位置。格式：'<相对文件路径>:<行号> [函数名] [地址]'。适应二进制或脚本。\n"
+        "description": "精确位置（文件:行号 函数名 地址）\n"
     },
     "description": {
         "type": "string",
@@ -25,11 +25,11 @@ FINDING_SCHEMA: Dict[str, Dict[str, Any]] = {
     "link_identifiers": {
         "type": "array",
         "items": {"type": "string"},
-        "description": "将此发现与其他发现连接的特定标识符列表（NVRAM 变量、函数名、文件路径）。避免使用通用术语。\n"
+        "description": "将此发现与其他发现连接的特定标识符列表（NVRAM 变量、函数名、文件路径）。避免使用通用术语，确保精准追踪跨文件、跨进程的数据流与交互。\n"
     },
     "code_snippet": {
         "type": "string",
-        "description": "最相关的代码片段。"
+        "description": "与发现直接相关的代码片段。应包含足够的上下文以理解问题，通常为3-10行。"
     },
     "risk_score": {
         "type": "number",
@@ -41,7 +41,7 @@ FINDING_SCHEMA: Dict[str, Dict[str, Any]] = {
     },
     "notes": {
         "type": "string",
-        "description": "供人工分析师参考。包括做出的假设、剩余问题或下一步分析的建议\n"
+        "description": "其他需要记录的备注信息，供人工分析师参考。包括做出的假设、需要进一步验证的文件或者变量来源、剩余问题或下一步分析的建议\n"
     }
 }
 

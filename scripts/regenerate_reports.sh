@@ -74,11 +74,11 @@ regenerate_reports() {
     
     # 检查并重新生成知识库报告
     if [ -f "$output_dir/knowledge_base.jsonl" ]; then
-        echo "    [转换] 知识库报告: $firmware_name (任务: $task_name)"
-        if python3 firmhive/utils/convert2md.py kb "$output_dir/knowledge_base.jsonl" -o knowledge_base.md 2>&1; then
+        echo "    [转换] 知识库报告: $firmware_name (任务: $task_name)" >&2
+        if python3 firmhive/utils/convert2md.py kb "$output_dir/knowledge_base.jsonl" -o knowledge_base.md >/dev/null 2>&1; then
             kb_regenerated=1
         else
-            echo "    [错误] 知识库转换失败: $firmware_name"
+            echo "    [错误] 知识库转换失败: $firmware_name" >&2
             errors=1
         fi
     else
@@ -87,11 +87,11 @@ regenerate_reports() {
     
     # 检查并重新生成验证报告
     if [ -f "$output_dir/verification_results.jsonl" ]; then
-        echo "    [转换] 验证报告: $firmware_name (任务: $task_name)"
-        if python3 firmhive/utils/convert2md.py vr "$output_dir" -o verification_report.md 2>&1; then
+        echo "    [转换] 验证报告: $firmware_name (任务: $task_name)" >&2
+        if python3 firmhive/utils/convert2md.py vr "$output_dir" -o verification_report.md >/dev/null 2>&1; then
             vr_regenerated=1
         else
-            echo "    [错误] 验证报告转换失败: $firmware_name"
+            echo "    [错误] 验证报告转换失败: $firmware_name" >&2
             errors=1
         fi
     else

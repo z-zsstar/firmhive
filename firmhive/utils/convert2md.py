@@ -51,9 +51,7 @@ def _format_verification_record_md(record: dict, header_level: int = 3) -> str:
         result_dict = result_raw
 
     header_prefix = '#' * header_level
-    name = task.get('name', '无标题的待验证发现')
-    markdown_output = f"{header_prefix} {name}\n\n"
-    markdown_output += f"{header_prefix}# 原始信息\n"
+    markdown_output = f"{header_prefix} 原始信息\n\n"
     path_to_display = task.get('file_path') or task.get('dir_path') or task.get('relative_path') or task.get('file_name', 'N/A')
     if path_to_display and path_to_display != 'N/A':
         markdown_output += f"- **文件/目录路径：** `{path_to_display}`\n"
@@ -70,7 +68,7 @@ def _format_verification_record_md(record: dict, header_level: int = 3) -> str:
     notes = task.get('notes')
     if notes:
         markdown_output += f"- **备注：** {notes}\n"
-    markdown_output += f"\n{header_prefix}# 验证结论\n"
+    markdown_output += f"\n{header_prefix} 验证结论\n\n"
     if result_dict and 'accuracy' in result_dict and 'vulnerability' in result_dict:
         markdown_output += f"- **描述准确性：** `{result_dict.get('accuracy', 'N/A')}`\n"
         markdown_output += f"- **是否为真实漏洞：** `{result_dict.get('vulnerability', 'N/A')}`\n"
@@ -79,7 +77,7 @@ def _format_verification_record_md(record: dict, header_level: int = 3) -> str:
     else:
         output_str = json.dumps(result_dict, indent=2, ensure_ascii=False) if result_dict else str(result_raw)
         markdown_output += f"**原始验证结果：**\n```json\n{output_str}\n```\n"
-    markdown_output += f"\n{header_prefix}# 验证指标\n"
+    markdown_output += f"\n{header_prefix} 验证指标\n\n"
     markdown_output += f"- **验证时长：** {float(duration):.2f} 秒\n" if isinstance(duration, float) else f"- **验证时长：** {duration}\n"
     markdown_output += f"- **Token 使用量：** {tokens}\n"
     markdown_output += "\n---\n\n"

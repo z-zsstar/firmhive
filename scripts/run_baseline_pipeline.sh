@@ -42,7 +42,7 @@ run_analysis() {
         return 1
     fi
 
-    python3 baselines/baseline_pipeline.py \
+    python3 eval/baseline_pipeline.py \
         --search_dir "$firmware_path" \
         --output "$output_dir_for_script" \
         --user_input "$task_prompt"

@@ -153,5 +153,9 @@ bash scripts/run_hierarchical.sh --T5_COMPREHENSIVE_ANALYSIS
 - Location: `results/<METHOD>/<TASK>/<FIRMWARE>/`
 - Artifacts include: `knowledge_base.jsonl/md`, `verification_results.jsonl`, `verification_report.md`.
 
-## Notes
-- This branch is anonymized and focused on reproducibility and framework internals. For a narrative paper overview and additional docs, see `main`.
+### Task Index
+- T5 (Comprehensive Analysis): final, validated vulnerability reports live under:
+  - `results/T5_COMPREHENSIVE_ANALYSIS/<FIRMWARE>/verification_report.md`
+  - Detailed evidence: `verification_results.jsonl`; initial candidates: `knowledge_base.*`
+- Other tasks (T1–T4): follow the same pattern under `results/<TASK>/...`.
+

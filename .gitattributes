@@ -3,7 +3,6 @@
 
 # Exclude transient outputs from release archives
 output/ export-ignore
-result/ export-ignore
 results/ export-ignore
 __pycache__/ export-ignore
 .env export-ignore

@@ -1,0 +1,1 @@
+{"name": "busybox-version", "location": "./bin/busybox", "risk_score": 7.0, "confidence": 7.5, "description": "BusyBox version 1.7.2 is present in the firmware, compiled on 2017-09-23. This version is known to contain multiple vulnerabilities.", "code_snippet": "BusyBox v1.7.2 (2017-09-23 22:21:40 CST)", "link_identifiers": ["BusyBox", "v1.7.2"], "notes": "binary"}

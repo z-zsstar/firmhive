@@ -1,0 +1,3 @@
+{"location": "N/A", "confidence": 0.0, "description": "[REDACTED_PASSWORD]", "code_snippet": "N/A", "link_identifiers": ["REDACTED_SENSITIVE_DATA", "shadow", "afpd.conf", "[REDACTED_PASSWORD]", "[REDACTED_PASSWORD]"]}
+{"location": "etc/", "confidence": 0.0, "description": "REDACTED_SENSITIVE_DATA", "code_snippet": "REDACTED_SENSITIVE_DATA", "link_identifiers": ["REDACTED_SENSITIVE_DATA", "REDACTED_SENSITIVE_DATA"]}
+{"location": "etc/netatalk/afpd.conf", "confidence": 0.0, "description": "REDACTED_SENSITIVE_DATA", "code_snippet": "REDACTED_SENSITIVE_DATA", "link_identifiers": ["afpd.conf", "REDACTED_SENSITIVE_DATA", "uams_dhx_passwd.so", "passwdfile"]}

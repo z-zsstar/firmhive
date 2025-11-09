@@ -3,7 +3,7 @@
 ## Project Structure & Module Organization
 - `agent/`: Core multi-agent runtime (RDE) and tool framework; start at `agent/base.py`, `agent/core/`.
 - `firmhive/`: Firmware-specific implementation: `blueprint.py` (workflow), `assistants.py`, `knowagent.py`, `tools.py`, `utils/`.
-- `baselines/`: Baseline agents/pipelines used for comparisons.
+- `eval/`: Baseline agents/pipelines used for comparisons.
 - `scripts/`: Ready-to-run entrypoints (see below).
 - Outputs go to `output/` for ad-hoc runs and `result/` for evaluations (both git-ignored).
 - `exp/`: Curated experiment artifacts intended for paper submission.

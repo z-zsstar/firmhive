@@ -29,7 +29,7 @@ firmhive/
 │   ├── assistants.py      # 🐝 Specialized analysis agents (directory, file, function)
 │   └── tools.py           # 🛠️ Firmware analysis tools (fs, radare2 wrapper)
 │
-├── baselines/             # Baseline agent implementations (SRA, MAS)
+├── eval/                  # Baseline agent implementations (SRA, MAS)
 └── scripts/               # Execution scripts for running analysis and baselines
 ```
 

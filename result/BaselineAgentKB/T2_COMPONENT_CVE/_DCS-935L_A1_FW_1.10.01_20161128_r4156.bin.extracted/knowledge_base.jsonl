@@ -1,0 +1,4 @@
+{"name": "busybox-version", "location": "bin/busybox", "risk_score": 0, "confidence": 5.0, "description": "binary", "code_snippet": "BusyBox v1.22.1 (2016-11-28 15:44:17 CST)", "link_identifiers": ["BusyBox", "v1.22.1"], "notes": "binary"}
+{"name": "curl-version", "location": "bin/curl", "risk_score": 0, "confidence": 5.0, "description": "binary", "code_snippet": "curl 7.37.0 (mips-unknown-linux-gnu) %s", "link_identifiers": ["curl", "7.37.0"], "notes": "binary"}
+{"name": "stunnel-version", "location": "bin/stunnel", "risk_score": 0, "confidence": 5.0, "description": "binary", "code_snippet": "stunnel 5.21 on mips-unknown-linux-gnu platform", "link_identifiers": ["stunnel", "5.21"], "notes": "binary"}
+{"name": "openssl-version", "location": "bin/stunnel", "risk_score": 0, "confidence": 5.0, "description": "library", "code_snippet": "OpenSSL 1.0.1t  3 May 2016", "link_identifiers": ["OpenSSL", "1.0.1t"], "notes": "library"}

@@ -1,0 +1,1 @@
+{"name": "error-invalid-file-path", "file_path": "N/A", "location": "N/A", "risk_score": 0.0, "confidence": 5.0, "description": "error", "code_snippet": "N/A", "link_identifiers": [], "notes": "Please confirm and provide a valid firmware file path. The analysis requires a specific file target to proceed with SBOM generation and vulnerability analysis."}

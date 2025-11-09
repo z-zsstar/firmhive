@@ -40,99 +40,40 @@ FirmHive is a hierarchical multi‑agent framework for automated firmware analys
 - Budgets: per‑agent `max_iterations`, timeouts, and context paths (logs, output subdirs).
 
 ### Blueprint Examples (2‑Layer A/B, 3‑Layer C)
-Minimal sketches showing how to assemble constrained‑yet‑dynamic blueprints using the same primitives as `firmhive/blueprint.py`.
+Pseudocode to convey the idea (constraints + dynamism), not full API calls.
 
-```python
-from agent.core.builder import AgentConfig, AssistantToolConfig, build_agent
-from firmhive.blueprint import (
-  create_file_analysis_config,
-  ExecutorAgent,
-  DEFAULT_WORKER_EXECUTOR_SYSTEM_PROMPT,
-)
-from firmhive.assistants import (
-  ParallelDeepDirectoryAnalysisDelegator,
-  ParallelDeepFileAnalysisDelegator,
-  DeepDirectoryAnalysisAssistant,
-  DeepFileAnalysisAssistant,
-)
-from firmhive.tools import GetContextInfoTool, ShellExecutorTool, Radare2FileTargetTool
+```text
+// A) Two‑Layer, Sequential (Conservative)
+cfg_A:
+  L1 (Directory): DeepDirectoryAnalysisAssistant -> L0
+  L0 (Terminal):  DeepFileAnalysisAssistant
+  include_kb: false
+  max_iterations: 30
+  tools per layer: whitelisted, fixed prompts
 
-# A) Two‑Layer, Sequential (Conservative)
-file_cfg_A = create_file_analysis_config(include_kb=False, max_iterations=30)
-terminal_A = AgentConfig(
-  agent_class=ExecutorAgent,
-  tool_configs=[
-    GetContextInfoTool, ShellExecutorTool, Radare2FileTargetTool,
-    AssistantToolConfig(assistant_class=DeepFileAnalysisAssistant, sub_agent_config=file_cfg_A), # sequential file analysis
-  ],
-  system_prompt=DEFAULT_WORKER_EXECUTOR_SYSTEM_PROMPT,
-  max_iterations=30,
-)
-cfg_A = AgentConfig(
-  agent_class=ExecutorAgent,
-  tool_configs=[
-    GetContextInfoTool, ShellExecutorTool,
-    AssistantToolConfig(assistant_class=DeepDirectoryAnalysisAssistant, sub_agent_config=terminal_A), # sequential dirs
-  ],
-  system_prompt=DEFAULT_WORKER_EXECUTOR_SYSTEM_PROMPT,
-  max_iterations=30,
-)
+// B) Two‑Layer, Parallel (Broad & Fast)
+cfg_B:
+  L1 (Directory): ParallelDeepDirectoryAnalysisDelegator -> L0   // parallel dirs
+  L0 (Terminal):  ParallelDeepFileAnalysisDelegator               // parallel files
+  include_kb: true
+  max_iterations: 40
+  tip: sub‑agents may set run_in_background:true to overlap work
 
-# B) Two‑Layer, Parallel (Broad & Fast)
-file_cfg_B = create_file_analysis_config(include_kb=True, max_iterations=40)
-terminal_B = AgentConfig(
-  agent_class=ExecutorAgent,
-  tool_configs=[
-    GetContextInfoTool, ShellExecutorTool, Radare2FileTargetTool,
-    AssistantToolConfig(assistant_class=ParallelDeepFileAnalysisDelegator, sub_agent_config=file_cfg_B), # parallel files
-  ],
-  system_prompt=DEFAULT_WORKER_EXECUTOR_SYSTEM_PROMPT,
-  max_iterations=40,
-)
-cfg_B = AgentConfig(
-  agent_class=ExecutorAgent,
-  tool_configs=[
-    GetContextInfoTool, ShellExecutorTool,
-    AssistantToolConfig(assistant_class=ParallelDeepDirectoryAnalysisDelegator, sub_agent_config=terminal_B), # parallel dirs
-  ],
-  system_prompt=DEFAULT_WORKER_EXECUTOR_SYSTEM_PROMPT,
-  max_iterations=40,
-)
-
-# C) Three‑Layer (Dir → File → Terminal)
-file_cfg_C = create_file_analysis_config(include_kb=True, max_iterations=50)
-terminal_C = AgentConfig(
-  agent_class=ExecutorAgent,
-  tool_configs=[GetContextInfoTool, ShellExecutorTool, Radare2FileTargetTool,
-    AssistantToolConfig(assistant_class=DeepFileAnalysisAssistant, sub_agent_config=file_cfg_C)],
-  system_prompt=DEFAULT_WORKER_EXECUTOR_SYSTEM_PROMPT,
-  max_iterations=50,
-)
-mid_file_level = AgentConfig(
-  agent_class=ExecutorAgent,
-  tool_configs=[GetContextInfoTool, ShellExecutorTool,
-    AssistantToolConfig(assistant_class=ParallelDeepFileAnalysisDelegator, sub_agent_config=terminal_C)],
-  system_prompt=DEFAULT_WORKER_EXECUTOR_SYSTEM_PROMPT,
-  max_iterations=50,
-)
-cfg_C = AgentConfig(
-  agent_class=ExecutorAgent,
-  tool_configs=[GetContextInfoTool, ShellExecutorTool,
-    AssistantToolConfig(assistant_class=ParallelDeepDirectoryAnalysisDelegator, sub_agent_config=mid_file_level)],
-  system_prompt=DEFAULT_WORKER_EXECUTOR_SYSTEM_PROMPT,
-  max_iterations=50,
-)
-
-# Build with your context
-# agent = build_agent(cfg_A, context=your_context)
+// C) Three‑Layer (Dir → File → Terminal)
+cfg_C:
+  L2 (Directory): ParallelDeepDirectoryAnalysisDelegator -> L1
+  L1 (File):      ParallelDeepFileAnalysisDelegator -> L0
+  L0 (Terminal):  DeepFileAnalysisAssistant
+  include_kb: true
+  max_iterations: 50
 ```
 
 Effects & Guarantees:
-- Predictable Constraints: Each layer has fixed prompts and whitelisted tools; per‑agent `max_iterations` bounds execution. This makes behavior reproducible and debuggable.
-- Dynamic Behavior: Within those bounds, agents choose when to delegate, whether to use parallel delegators, and can set `run_in_background: true` to overlap work. PKH (when enabled) adds cross‑file context without breaking isolation.
-- A: Deterministic, lowest overhead; ideal for quick, small‑image scans.
-- B: Broader coverage and faster on large trees (parallel dirs/files); still bounded by per‑layer budgets.
-- C: Adds an intermediate file layer to coordinate terminal workers, balancing breadth and depth while keeping decisions local and explainable.
+- Predictable constraints: fixed prompts + tool whitelists per layer; bounded by per‑agent `max_iterations` → reproducible & debuggable.
+- Dynamic behavior: agents decide whether/when to delegate, choose parallel vs. sequential, and can use `run_in_background:true`; PKH (if enabled) adds cross‑file recall without breaking layer isolation.
+- A: Lowest overhead, small images finish quickly; good for smoke tests.
+- B: High coverage and speed on large trees via parallelism; still bounded by budgets.
+- C: Adds a file coordination layer for breadth+depth while keeping decisions local and explainable.
 
 ## Setup
 - Python 3.8+
@@ -158,4 +99,3 @@ bash scripts/run_hierarchical.sh --T5_COMPREHENSIVE_ANALYSIS
   - `results/T5_COMPREHENSIVE_ANALYSIS/<FIRMWARE>/verification_report.md`
   - Detailed evidence: `verification_results.jsonl`; initial candidates: `knowledge_base.*`
 - Other tasks (T1–T4): follow the same pattern under `results/<TASK>/...`.
-

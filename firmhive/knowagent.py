@@ -12,38 +12,39 @@ DEFAULT_KB_FILE = "knowledge_base.jsonl"
 FINDING_SCHEMA: Dict[str, Dict[str, Any]] = {
     "name": {
         "type": "string", 
-        "description": "Define a unique identifier for the item. Suggested format: '<Type>-<Function/Module>'."
+        "description": "A unique identifier for the finding. Suggested format: '<type>-<function/module>'."
     },
     "location": {
         "type": "string",
-        "description": "Precise location of the code sink or key logic. Format: '<relative_file_path>:<line_number> [function_name] [address]'. Adapts to binary or script.\n"
+        "description": "Precise location (file:line_number function_name address)."
     },
     "description": {
         "type": "string",
-        "description": "Describe in detail the findings or observations.\n"
+        "description": "Detailed description of the finding or observation."
     },
     "link_identifiers": {
         "type": "array",
         "items": {"type": "string"},
-        "description": "List of specific identifiers (NVRAM vars, function names, file paths) that connect this finding to others. AVOID generic terms.\n"
+        "description": "A list of specific identifiers related to this finding (e.g., NVRAM variable, function name, file path). Avoid generic terms; ensure accurate tracking across files and inter-process data flows/interactions."
     },
     "code_snippet": {
         "type": "string",
-        "description": "The most relevant code snippet."
+        "description": "A code snippet directly related to the finding. Should include enough context to understand the issue, typically 3-10 lines."
     },
     "risk_score": {
         "type": "number",
-        "description": "Risk score (0.0-10.0)"
+        "description": "Risk score (0.0-10.0)."
     },
     "confidence": {
         "type": "number",
-        "description": "Confidence in the finding's accuracy and exploitability. (0.0-10.0)"
+        "description": "Confidence in the correctness and exploitability of the finding (0.0-10.0)."
     },
     "notes": {
         "type": "string",
-        "description": "For human analysts. Includes assumptions made, remaining questions, or suggestions for the next analysis step \n"
+        "description": "Other notes for human analysts, including assumptions made, files or variable sources needing further verification, remaining issues, or suggestions for next analysis steps."
     }
 }
+
 
 FINDING_SCHEMA_REQUIRED_FIELDS: List[str] = ["location", "description"]
 
@@ -326,7 +327,7 @@ class ListUniqueValuesTool(ExecutableTool, KnowledgeBaseMixin):
 
 
 DEFAULT_KB_SYSTEM_PROMPT = f"""
-You are a firmware analysis knowledge base agent, responsible for efficiently and accurately handling the storage, querying, and correlation analysis of firmware analysis findings. When there is no valid and risk information or it is irrelevant to the user's request, do not perform any storage or query operations. Your primary principle is **quality over quantity**; only findings that are **practically exploitable** should be stored.
+You are a firmware analysis knowledge base agent, responsible for efficiently and accurately handling the storage, querying, and correlation analysis of firmware analysis findings. When there is no valid and risk information or it is irrelevant to the user's request, do not perform any storage or query operations.
 
 ## **Preparation Before Storing**
 **Before each storage operation, it is strongly recommended to first use the `ListUniqueValues` tool to understand the overall state of the knowledge base:**

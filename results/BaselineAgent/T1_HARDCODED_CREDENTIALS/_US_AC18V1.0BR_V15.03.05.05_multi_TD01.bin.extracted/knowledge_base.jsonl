@@ -1,5 +1,0 @@
-{"location": "[SECRET_VALUE]", "confidence": 0.0, "description": "[SECRET_VALUE]", "code_snippet": "[SECRET_VALUE]", "link_identifiers": ["[SECRET_VALUE]", "shadow", "[SECRET_VALUE]", "[SECRET_VALUE]", "support", "user", "nobody"]}
-{"location": "./webroot_ro/goform/cloud.txt:3", "confidence": 0.0, "description": "[SECRET_VALUE]", "code_snippet": "[SECRET_VALUE]", "link_identifiers": ["cloud.txt", "[SECRET_VALUE]", "NjE3MzA1NjI=", "Base64"]}
-{"location": "[SECRET_VALUE]", "confidence": 0.0, "description": "[SECRET_VALUE]", "code_snippet": "\"ddns[SECRET_VALUE]\":\"456\"", "link_identifiers": ["GetDDNSCfg.txt", "ddns[SECRET_VALUE]", "456"]}
-{"location": "[SECRET_VALUE]", "confidence": 0.0, "description": "[SECRET_VALUE]", "code_snippet": "[SECRET_VALUE]", "link_identifiers": ["GetSambaCfg.txt", "[SECRET_VALUE]", "1asdf23", "guest[SECRET_VALUE]", "rewrewf"]}
-{"location": "[SECRET_VALUE]", "confidence": 0.0, "description": "[SECRET_VALUE]", "code_snippet": "[SECRET_VALUE]", "link_identifiers": ["[SECRET_VALUE].txt", "[SECRET_VALUE]", "[SECRET_VALUE]", "mrwho1", "mrwho2", "mrwho3"]}

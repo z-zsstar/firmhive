@@ -4,7 +4,7 @@
 
 **FirmHive** is an automated firmware vulnerability analysis system powered by LLM agents. It employs a hierarchical multi-agent architecture to systematically analyze firmware images, identify security vulnerabilities, and generate detailed, verified reports. It is the practical implementation of the HiveMind architecture described in our paper.
 
-> **🌏 Chinese Version Available**: A fully localized Chinese version is available on the `hivemind_cn` branch. All system prompts, task descriptions, tool descriptions, and documentation have been translated to Chinese. To use it: `git checkout hivemind_cn`
+> **🌏 Chinese Version Available**: A fully localized Chinese version is available on the `firmhive_cn` branch. All system prompts, task descriptions, tool descriptions, and documentation have been translated to Chinese. To use it: `git checkout firmhive_cn`
 
 ### Key Features
 
@@ -12,7 +12,7 @@
 - 📚 **Proactive Knowledge Hub (PKH)**: A central knowledge base (`firmhive/knowagent.py`) that enables agents to store, query, and proactively link findings, creating a collective intelligence.
 - ✅ **Two-Phase Analysis (Explore & Verify)**: A workflow that first explores the firmware to find a wide range of potential vulnerabilities and then launches a second, focused verification phase to filter out false positives and confirm findings.
 - 🔧 **Customizable Analysis Blueprints**: The analysis strategy is not hardcoded. You can define your own hierarchical workflow, agent types, tools, and prompts in `firmhive/blueprint.py`.
-- 🤖 **Specialized Agents**: A suite of agents in `firmhive/assitants.py` designed for specific tasks like directory traversal, file analysis, and deep binary function tracing.
+- 🤖 **Specialized Agents**: A suite of agents in `firmhive/assistants.py` designed for specific tasks like directory traversal, file analysis, and deep binary function tracing.
 
 ## Project Structure
 
@@ -26,10 +26,10 @@ firmhive/
 ├── firmhive/              # Domain-specific implementation for firmware analysis
 │   ├── blueprint.py       # 🧬 Analysis hierarchy, agent configs, and system prompts
 │   ├── knowagent.py       # 🧠 Proactive Knowledge Hub (PKH) agent
-│   ├── assitants.py       # 🐝 Specialized analysis agents (directory, file, function)
+│   ├── assistants.py      # 🐝 Specialized analysis agents (directory, file, function)
 │   └── tools.py           # 🛠️ Firmware analysis tools (fs, radare2 wrapper)
 │
-├── eval/                  # Evaluation & baseline agent implementations (SRA, MAS)
+├── baselines/             # Baseline agent implementations (SRA, MAS)
 └── scripts/               # Execution scripts for running analysis and baselines
 ```
 
@@ -70,6 +70,12 @@ cp config.ini.template config.ini
 python -u firmhive/blueprint.py \
   --search_dir /path/to/extracted_firmware \
   --output ./output
+```
+
+Dataset root (for scripts): set once to avoid hardcoding paths
+
+```bash
+export KARONTE_DATASET_DIR=/path/to/karonte_dataset
 ```
 
 ## Understanding the Output
@@ -160,8 +166,9 @@ Agents proactively store and query findings:
 ### Running Baselines
 
 ```bash
-# Edit firmware path in scripts
-vim scripts/run_hierarchical.sh  # Set FIRMWARE_BASE_DIR
+# Set dataset root once (preferred)
+export KARONTE_DATASET_DIR=/path/to/karonte_dataset
+# Alternatively, edit FIRMWARE_BASE_DIR in the scripts.
 
 # Run FirmHive (full system)
 bash scripts/run_hierarchical.sh
@@ -175,10 +182,10 @@ bash scripts/run_baseline_pipeline_kb.sh  # MAS + Knowledge Base
 
 ### Results Location
 
-All evaluation outputs are stored in the `results/` directory, organized by method.
+All evaluation outputs are stored in the `result/` directory, organized by method. For paper submission, only curated results under `exp/` are included; `output/` and `result/` are local and git-ignored.
 
 ```
-results/
+result/
 ├── Hierarchical/              # ✅ FirmHive (our system)
 │   └── <TASK>/<FIRMWARE>/
 │       ├── knowledge_base.jsonl
@@ -191,6 +198,11 @@ results/
 ```
 
 **Analysis Tip**: When comparing results, always use `verification_report.md` for FirmHive's final validated vulnerabilities, not the raw `knowledge_base.jsonl` of initial candidates.
+
+### Artifact Packaging Notes
+- Do not commit `output/` or `result/` (both are git-ignored).
+- Include `exp/` contents — these contain the curated, compacted reports for the paper.
+- Configure dataset root via `KARONTE_DATASET_DIR` to keep scripts anonymized.
 
 ## Customization and Configuration
 

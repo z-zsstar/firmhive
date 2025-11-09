@@ -9,7 +9,7 @@ from typing import Dict, List, Any, Optional, Type, Union
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from agent.base import BaseAgent
-from agent.core.assitants import BaseAssistant, ParallelBaseAssistant
+from agent.core.assistants import BaseAssistant, ParallelBaseAssistant
 from agent.core.builder import build_agent, AgentConfig, AssistantToolConfig
 
 from firmhive.utils.finder import find_firmware_root
@@ -18,52 +18,52 @@ from firmhive.tools import FlexibleContext, ExecutableTool, GetContextInfoTool, 
     #  VulnerabilitySearchTool
 
 from firmhive.knowagent import KnowledgeBaseAgent,QueryFindingsTool,ListUniqueValuesTool,StoreFindingsTool,DEFAULT_KB_SYSTEM_PROMPT
-from firmhive.assitants import ParallelFunctionDelegator,ParallelDeepFileAnalysisDelegator,ParallelDeepDirectoryAnalysisDelegator,\
+from firmhive.assistants import ParallelFunctionDelegator,ParallelDeepFileAnalysisDelegator,ParallelDeepDirectoryAnalysisDelegator,\
                             DeepFileAnalysisAssistant,DeepDirectoryAnalysisAssistant
 
 
 DEFAULT_VERIFICATION_TASK_TEMPLATE = (
-    "Your sole task is to strictly and objectively verify the following security alert. Your analysis must be based entirely on the evidence provided.\n\n"
+    "Your sole task is to strictly and objectively validate the following security alert. Your analysis must be entirely based on the provided evidence.\n\n"
     "**Core Principles**:\n"
-    "1.  **Evidence-Driven**: All claims in the alert must be verified through the analysis of the provided evidence. Guessing or analyzing unrelated information and files is strictly prohibited.\n"
-    "2.  **Logical Review**: Do not just confirm the existence of code; you must understand its execution logic. Carefully check conditional statements, data sanitization, and other factors that determine whether the code path is reachable.\n"
-    "3.  **Exploitability Verification**: Verify that the vulnerability is **practically exploitable** by confirming:\n"
+    "1.  **Evidence-driven**: All assertions in the alert must be validated by analyzing the provided evidence. Guesswork or analyzing unrelated information and files is strictly prohibited.\n"
+    "2.  **Logic Review**: Do not simply confirm the existence of the code; you must understand its execution logic. Carefully examine control flow statements, data sanitization, and other factors that determine reachability of code paths.\n"
+    "3.  **Exploitation Verification**: Validate whether the vulnerability is **actually exploitable** by confirming:\n"
     "    - **Input Controllability**: The attacker can control the tainted input.\n"
-    "    - **Path Reachability**: The vulnerable code path is reachable under realistic conditions.\n"
-    "    - **Real Impact**: The sink operation can cause actual security damage.\n"
-    "4.  **Complete Attack Chain**: Verify the **complete propagation path** from the attacker-controlled input to the dangerous sink, with evidence at each step.\n\n"
-    "**Note**: Function names in the alert may be from decompilation. Search carefully; do not easily conclude they don't exist just because they are not in the symbol table or strings.\n\n"
+    "    - **Path Reachability**: The vulnerable path is reachable under realistic conditions. In your analysis, clearly define and state the attacker model used for this vulnerability assessment (e.g., unauthenticated remote attacker, authenticated local user, etc.).\n"
+    "    - **Practical Impact**: The operation can cause actual security harm.\n"
+    "4.  **Complete Attack Chain**: - **Full path required**: Partial or conjectural paths are unacceptable. You must provide a complete, validated chain. The full propagation path from attacker-controlled input to the dangerous sink must be verified, supported by evidence at each step.\n\n"
+    "**Note**: Function names in the alert may come from decompilation. Search thoroughly; do not hastily conclude that they do not exist just because they are not in the symbol table or strings.\n\n"
     "{verification_finding_details}\n"
 )
 
 DEFAULT_VERIFICATION_INSTRUCTION_TEMPLATE = (
     "{verification_task}\n"
-    "**Provide Conclusion**: At the end of the analysis, `final_response` must be a JSON object containing the following fields:\n"
-    "    - `accuracy`: (string) Assessment of the accuracy of the alert description. Must be 'accurate', 'inaccurate', or 'partially'.\n"
-    "    - `vulnerability`: (boolean) Determine if the description is sufficient to constitute a real vulnerability. Must be True or False. The prerequisite is that the attacker is a user already connected to the device and possesses valid login credentials.\n"
-    "    - `risk_level`: (string) Given that `vulnerability` is `true`, the risk level of the vulnerability. Must be 'Low', 'Medium', or 'High'.\n"
-    "    - `reason`: (string) Detailed explanation of your judgment, which must support all the above conclusions.For findings confirmed as true vulnerabilities, this field must also provide a reproducible attack payload or Proof of Concept (PoC) steps, clearly describing how to exploit the vulnerability.\n"
+    "**Provide a Conclusion**: At the end of your analysis, `final_response` must be a JSON object containing the following fields:\n"
+    "    - `accuracy`: (string) Assessment of the alert's descriptive accuracy. Must be 'accurate', 'inaccurate', or 'partially'.\n"
+    "    - `vulnerability`: (boolean) Whether the description is sufficient to constitute a real vulnerability. Must be True or False. Clearly explain the attacker assumptions on which you base your evaluation.\n"
+    "    - `risk_level`: (string) If `vulnerability` is `true`, the risk level of the vulnerability. Must be 'Low', 'Medium', or 'High'.\n"
+    "    - `reason`: (string) A detailed explanation supporting all the above conclusions. For findings confirmed as real vulnerabilities, this field must also include a reproducible attack payload or proof-of-concept (PoC) steps, clearly describing how to exploit the vulnerability.\n"
 )
 
 
 SHARED_RESPONSE_FORMAT_BLOCK = """
 Each finding must include the following **core fields**:
 - **`description`**: A detailed description of the finding, which must include:
-* **Complete & Verifiable Attack Chain**: The specific taint propagation path from an attacker-controllable source to a dangerous sink, supported by evidence at each step.
-* **Precise Trigger Conditions**: Exact conditions required to reach the vulnerable code path.
-* **Exploitability Analysis**: Clear explanation of *why* this is exploitable (e.g., missing sanitization, flawed logic).
+* Specific manifestation and triggering conditions of the problem
+* Detailed constraint and boundary check situations
+* Potential attack and exploitation methods
+* Relevant code logic or technical details
 
-- **`link_identifiers`**: Specific NVRAM or ENV variable names, file paths, IPC socket paths, and custom shared function symbols.
-- **`location`**: Precise location of the code sink or key logic. 
-- **`code_snippet`**: Return the complete relevant code snippet demonstrating the vulnerability.
-- **`risk_score`**: Risk score (0.0-10.0). **Score >= 7.0 only for findings with a verified, complete attack chain and clear security impact.**
-- **`confidence`**: Confidence of analysis in the finding's accuracy and exploitability.  (0.0-10.0). **Score >= 8.0 requires a complete, verifiable attack chain from source to sink.**
-- **`notes`**: For human analysts. Including: assumptions requiring further verification, associated files or functions, suggested directions for subsequent analysis.
+- **`link_identifiers`**: Specific NVRAM or ENV variable names, file paths, IPC socket paths, and custom shared function symbols to ensure accurate tracking of cross-file and cross-process data flow and interactions.
+- **`location`**: Precise location (file:line_number function_name address)
+- **`code_snippet`**: Return the complete relevant code segment, demonstrating vulnerability triggering conditions and exploitation methods.
+- **`risk_score`**: Risk score (0.0-10.0). **Only findings with a complete, validated attack chain and clear security impact can score >= 7.0.**
+- **`confidence`**: Confidence in the accuracy and exploitability analysis of the finding (0.0-10.0). **A score >= 8.0 requires a complete, verifiable attack chain from source to sink.**
+- **`notes`**: Other important information for reference by human analysts, including: assumptions requiring further validation, associated files or functions of the finding, and recommended directions for further analysis.
 
 #### Key Principles:
-- **Exploitability is Mandatory**: Only report findings that are practically exploitable. Theoretical weaknesses or bad practices (like using `strcpy`) are insufficient unless you can prove they lead to a vulnerability.
-- **Complete Path Required**: Partial or speculative paths ("might be vulnerable if...") are not acceptable. You must present the full, verified chain.
-- **Evidence Over Speculation**: All claims must be backed by evidence from tools. If evidence is lacking, state it clearly. Do not guess.
+- **Exploitability is Mandatory**: If the user only requires reporting of actually exploitable attack chains, then theoretical weaknesses or bad practices (such as using `strcpy`) are not sufficient unless you can prove that they lead to a vulnerability.
+- **Evidence Trumps Supposition**: All assertions must be supported by tool-generated evidence. If evidence is missing, state it explicitly. Do not speculate.
 """
 
 DEFAULT_WORKER_EXECUTOR_SYSTEM_PROMPT = f"""
@@ -269,7 +269,7 @@ def _create_nested_call_chain_config(max_iterations: int, max_depth: int = 4) ->
     return current_config
 
 def create_kb_agent_config(
-    max_iterations: int = 30,
+    max_iterations: int = 50,
 ) -> AgentConfig:
 
     kb_agent_cfg = AgentConfig(
@@ -282,7 +282,7 @@ def create_kb_agent_config(
 
 def create_file_analysis_config(
     include_kb: bool,
-    max_iterations: int = 30,
+    max_iterations: int = 50,
     main_system_prompt: Optional[str] = None, 
     sub_level_system_prompt: Optional[str] = None,
 ) -> AgentConfig:
@@ -355,7 +355,7 @@ def create_file_analysis_config(
 def create_firmware_analysis_blueprint(
     include_kb: bool = True,
     max_levels: int = 4,
-    max_iterations_per_agent: int = 30,
+    max_iterations_per_agent: int = 50,
 ) -> AgentConfig:
     """
     Creates a multi-layered, planner-executor nested firmware analysis agent configuration.
@@ -443,7 +443,7 @@ class FirmwareMasterAgent:
         output_dir: str,
         user_input: str,
         max_levels_for_blueprint: int = 4,
-        max_iterations_per_agent: int = 30,
+        max_iterations_per_agent: int = 50,
         agent_instance_name: Optional[str] = "FirmwareMasterAgent",
     ):
         if not os.path.isdir(firmware_root_path):
@@ -741,19 +741,12 @@ class FirmwareMasterAgent:
     
 if __name__ == "__main__":
     default_user_input = (
-    "Perform a comprehensive security analysis of the firmware. The core objective is to identify and report "
-    "complete, viable, and **practically exploitable** attack chains from untrusted input points to dangerous operations. "
-    "The analysis must focus on vulnerabilities with clear evidence of exploitability, not theoretical flaws.\n"
-    "1. **Input Point Identification**: Identify all potential sources of untrusted input, including but not limited "
-    "to network interfaces (HTTP, API, sockets), IPC, NVRAM/environment variables, etc.\n"
-    "2. **Data Flow Tracking**: Trace the propagation paths of untrusted data within the system and analyze whether "
-    "there are any processes without proper validation, filtering, or boundary checks.\n"
-    "3. **Component Interaction Analysis**: Focus on interactions between components (e.g., `nvram` get/set, IPC "
-    "communication) to observe how externally controllable data flows within the system and affects other components.\n"
-    "4. **Exploit Chain Evaluation**: For each potential attack chain discovered, evaluate its trigger conditions, "
-    "reproduction steps, and the probability of successful exploitation. **A finding is only valid if a complete and verifiable chain is found.**\n"
-    "5. **Final Output**: The report should clearly describe the attack paths and security vulnerabilities most likely "
-    "to be successfully exploited by an attacker."
+    "You must conduct a comprehensive analysis of the firmware file system, including binaries, configuration files, scripts, etc. The core objective is to identify and report complete, feasible, and actually exploitable attack chains from untrusted input points to dangerous operations. "
+    "The analysis must focus on vulnerabilities with clear exploitable evidence, not merely theoretical flaws. Clearly and independently define and state the attacker model being evaluated.\n"
+    "1. **Input Point Identification**: Identify all untrusted input sources in relevant files (binaries, configuration files, scripts, etc.), including but not limited to network interfaces (HTTP, API, sockets), IPC, NVRAM/environment variables, etc.\n"
+    "2. **Data Flow Tracking**: Trace the propagation paths of untrusted data within the system and analyze whether there is a lack of proper validation, filtering, or boundary checking.\n"
+    "3. **Component Interaction Analysis**: Focus on interactions between components (e.g., `nvram` get/set, IPC communication, front-end/back-end interaction), observing how externally controllable data flows within the system and affects other components.\n"
+    "4. **Final Output**: The report should clearly describe the attack paths and security vulnerabilities most likely to be successfully exploited by attackers, assess their prerequisites, reproduction steps, and likelihood of success. For each finding, clearly indicate the attacker model and assumptions used (including authentication level, required privileges, exposed surface/reachability, etc.), and provide the rationale."
 )
 
     

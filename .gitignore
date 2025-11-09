@@ -73,3 +73,9 @@ ENV/
 env.bak/
 venv.bak/
 *.ini
+
+# Run outputs (not for commit)
+output/
+result/
+results/
+

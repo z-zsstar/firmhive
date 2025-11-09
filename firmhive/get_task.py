@@ -2,37 +2,30 @@ import sys
 import argparse
 
 T1_HARDCODED_CREDENTIALS = (
-    "Perform a comprehensive scan of the firmware filesystem to locate and report all hard-coded credentials and sensitive information. "
+    "Perform a comprehensive scan of the firmware file system to locate and report all hardcoded credentials and sensitive information."
 )
 
 T2_COMPONENT_CVE = (
-    "Analyze the firmware to generate a Software Bill of Materials (SBOM) for third-party components and identify associated high-risk vulnerabilities (CVEs). "
+    "Analyze the firmware to generate a software bill of materials (SBOM) for third-party components, and identify related high-risk vulnerabilities (CVEs)."
 )
 
 T3_NVRAM_INTERACTION = (
-    "Analyze access to NVRAM and similar environment variable configuration systems (e.g., `getenv`) in the firmware. "
-    "The core task is to identify and report the complete, unsanitized data flow path from these variables to dangerous function calls."
+    "Analyze accesses to NVRAM and similar environment variable configuration systems (such as `getenv`) within the firmware. "
+    "The core task is to identify and report the complete, unsanitized data flow paths from these variables to dangerous function calls."
 )
 
 T4_WEB_ATTACK_CHAIN = (
-    "Analyze the firmware's web services to locate vulnerabilities where external HTTP input is passed to dangerous "
-    "functions (e.g., `system`, `strcpy`). The core task is to identify and report the complete, unsanitized data flow path from HTTP parameters to dangerous function calls. "
+    "Analyze the firmware's web services to locate vulnerabilities where external HTTP input is passed to dangerous functions (such as `system`, `strcpy`). "
+    "The core task is to identify and report the complete, unsanitized data flow paths from HTTP parameters to dangerous function calls."
 )
 
 T5_COMPREHENSIVE_ANALYSIS = (
-    "Perform a comprehensive security analysis of the firmware. The core objective is to identify and report "
-    "complete, viable, and **practically exploitable** attack chains from untrusted input points to dangerous operations. "
-    "The analysis must focus on vulnerabilities with clear evidence of exploitability, not theoretical flaws.\n"
-    "1. **Input Point Identification**: Identify all potential sources of untrusted input, including but not limited "
-    "to network interfaces (HTTP, API, sockets), IPC, NVRAM/environment variables, etc.\n"
-    "2. **Data Flow Tracking**: Trace the propagation paths of untrusted data within the system and analyze whether "
-    "there are any processes without proper validation, filtering, or boundary checks.\n"
-    "3. **Component Interaction Analysis**: Focus on interactions between components (e.g., `nvram` get/set, IPC "
-    "communication) to observe how externally controllable data flows within the system and affects other components.\n"
-    "4. **Exploit Chain Evaluation**: For each potential attack chain discovered, evaluate its trigger conditions, "
-    "reproduction steps, and the probability of successful exploitation. **A finding is only valid if a complete and verifiable chain is found.**\n"
-    "5. **Final Output**: The report should clearly describe the attack paths and security vulnerabilities most likely "
-    "to be successfully exploited by an attacker."
+    "You must conduct a comprehensive analysis of the firmware file system, including binaries, configuration files, scripts, etc. The core objective is to identify and report complete, feasible, and actually exploitable attack chains from untrusted input points to dangerous operations. "
+    "The analysis must focus on vulnerabilities with clear exploitable evidence, not merely theoretical flaws. Clearly and independently define and state the attacker model being evaluated.\n"
+    "1. **Input Point Identification**: Identify all untrusted input sources in relevant files (binaries, configuration files, scripts, etc.), including but not limited to network interfaces (HTTP, API, sockets), IPC, NVRAM/environment variables, etc.\n"
+    "2. **Data Flow Tracking**: Trace the propagation paths of untrusted data within the system and analyze whether there is a lack of proper validation, filtering, or boundary checking.\n"
+    "3. **Component Interaction Analysis**: Focus on interactions between components (e.g., `nvram` get/set, IPC communication, front-end/back-end interaction), observing how externally controllable data flows within the system and affects other components.\n"
+    "4. **Final Output**: The report should clearly describe the attack paths and security vulnerabilities most likely to be successfully exploited by attackers, assess their prerequisites, reproduction steps, and likelihood of success. For each finding, clearly indicate the attacker model and assumptions used (including authentication level, required privileges, exposed surface/reachability, etc.), and provide the rationale."
 )
 
 def get_task_prompt(task_name: str) -> str:

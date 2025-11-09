@@ -3,9 +3,10 @@ set -e
 
 METHOD_NAME="BaselinePipelineKB"
 
-BASE_OUTPUT_DIR="results"
+BASE_OUTPUT_DIR="result"
 
-FIRMWARE_BASE_DIR="/path/to/karonte_dataset"
+# Dataset root (anonymized). Override by exporting KARONTE_DATASET_DIR.
+FIRMWARE_BASE_DIR="${KARONTE_DATASET_DIR:-/path/to/karonte_dataset}"
 
 MAX_CONCURRENT_JOBS=8
 
@@ -46,7 +47,7 @@ run_analysis() {
         return 1
     fi
 
-    python3 eval/baseline_pipeline_kb.py \
+    python3 baselines/baseline_pipeline_kb.py \
         --search_dir "$firmware_path" \
         --output "$output_dir_for_script" \
         --user_input "$task_prompt"
@@ -94,7 +95,7 @@ fi
 echo "The following tasks will be run: ${TASKS_TO_RUN[*]}"
 echo ""
 
-echo "Discovering firmware targets from ${FIRMWARE_BASE_DIR}..."
+echo "Discovering firmware targets from karonte dataset..."
 FIRMWARE_TARGETS=$(python3 firmhive/discover.py --base_dir "$FIRMWARE_BASE_DIR")
 FIRMWARE_LIST=$(echo "$FIRMWARE_TARGETS" | tail -n +2)
 if [ -z "$FIRMWARE_LIST" ]; then

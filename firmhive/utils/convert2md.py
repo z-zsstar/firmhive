@@ -11,7 +11,7 @@ def load_knowledge_base(file_path):
                     try:
                         alerts.append(json.loads(line))
                     except json.JSONDecodeError:
-                        print(f"Warning: Could not decode line, skipped: {line.strip()}")
+                        print(f"Warning: Failed to decode a line, skipped: {line.strip()}")
         return alerts
     except FileNotFoundError:
         print(f"Error: File not found {file_path}")
@@ -28,7 +28,7 @@ def filter_and_sort_alerts(alerts_list):
             return (-risk, -confidence)
         except (ValueError, TypeError):
             placeholder_id = f"{finding.get('file_path', 'N/A')} at {finding.get('location', 'N/A')}"
-            print(f"Warning: One or more numeric values in finding are invalid, sorting with lowest priority: {placeholder_id}")
+            print(f"Warning: Invalid values in finding, ranked lowest: {placeholder_id}")
             return (0, 0)
 
     sorted_alerts = sorted(alerts_list, key=sort_key)
@@ -51,9 +51,7 @@ def _format_verification_record_md(record: dict, header_level: int = 3) -> str:
         result_dict = result_raw
 
     header_prefix = '#' * header_level
-    name = task.get('name', 'Untitled Finding to Verify')
-    markdown_output = f"{header_prefix} {name}\n\n"
-    markdown_output += f"{header_prefix}# Original Information\n"
+    markdown_output = f"{header_prefix} Original Information\n\n"
     path_to_display = task.get('file_path') or task.get('dir_path') or task.get('relative_path') or task.get('file_name', 'N/A')
     if path_to_display and path_to_display != 'N/A':
         markdown_output += f"- **File/Directory Path:** `{path_to_display}`\n"
@@ -70,24 +68,25 @@ def _format_verification_record_md(record: dict, header_level: int = 3) -> str:
     notes = task.get('notes')
     if notes:
         markdown_output += f"- **Notes:** {notes}\n"
-    markdown_output += f"\n{header_prefix}# Verification Conclusion\n"
+    markdown_output += f"\n{header_prefix} Verification Conclusion\n\n"
     if result_dict and 'accuracy' in result_dict and 'vulnerability' in result_dict:
         markdown_output += f"- **Description Accuracy:** `{result_dict.get('accuracy', 'N/A')}`\n"
-        markdown_output += f"- **Is a Real Vulnerability:** `{result_dict.get('vulnerability', 'N/A')}`\n"
+        markdown_output += f"- **Is Real Vulnerability:** `{result_dict.get('vulnerability', 'N/A')}`\n"
         markdown_output += f"- **Risk Level:** `{result_dict.get('risk_level', 'N/A')}`\n"
         markdown_output += f"- **Detailed Reason:** {result_dict.get('reason', 'N/A')}\n"
     else:
         output_str = json.dumps(result_dict, indent=2, ensure_ascii=False) if result_dict else str(result_raw)
         markdown_output += f"**Raw Verification Result:**\n```json\n{output_str}\n```\n"
-    markdown_output += f"\n{header_prefix}# Verification Metrics\n"
-    markdown_output += f"- **Verification Duration:** {float(duration):.2f} seconds\n" if isinstance(duration, float) else f"- **Verification Duration:** {duration}\n"
+    markdown_output += f"\n{header_prefix} Verification Metrics\n\n"
+    markdown_output += f"- **Verification Duration:** {float(duration):.2f} s\n" if isinstance(duration, float) else f"- **Verification Duration:** {duration}\n"
     markdown_output += f"- **Token Usage:** {tokens}\n"
     markdown_output += "\n---\n\n"
     return markdown_output
 
-def generate_verification_report_md(output_dir, output_filename="verification_report.md"):
+def generate_verification_report_md(output_dir, output_filename="verification_report.md", results_file=None):
     report_title = f"{os.path.basename(os.path.abspath(output_dir))} - Verification Report"
-    results_file = os.path.join(output_dir, "verification_results.jsonl")
+    if results_file is None:
+        results_file = os.path.join(output_dir, "verification_results.jsonl")
     
     if not os.path.exists(results_file):
         print(f"Warning: 'verification_results.jsonl' not found in '{output_dir}'.")
@@ -106,11 +105,11 @@ def generate_verification_report_md(output_dir, output_filename="verification_re
             except (ValueError, TypeError):
                 pass
         
-        markdown_output = f"# {report_title} ({len(filtered_results)} alerts)\n\n"
+        markdown_output = f"# {report_title} ({len(filtered_results)} findings)\n\n"
         markdown_output += "---\n\n"
 
         if not filtered_results:
-             markdown_output += "No verified alerts with a risk score > 0.5.\n"
+             markdown_output += "No verified finding with risk score > 0.5 was found.\n"
         else:
             sorted_results, _ = filter_and_sort_alerts(filtered_results)
             for record in sorted_results:
@@ -122,14 +121,14 @@ def generate_verification_report_md(output_dir, output_filename="verification_re
             f.write(markdown_output)
         return True, output_markdown_file
     except IOError as e:
-        return False, f"Could not write file {output_markdown_file}: {str(e)}"
+        return False, f"Failed to write file {output_markdown_file}: {str(e)}"
 
 def convert_to_markdown(alerts, kb_title, total_alerts_count):
-    markdown_output = f"# {kb_title} ({total_alerts_count} alerts)\n\n"
+    markdown_output = f"# {kb_title} ({total_alerts_count} findings)\n\n"
     markdown_output += "---\n\n"
 
     if not alerts:
-        markdown_output += "No eligible alerts with a risk score > 0.5 found.\n"
+        markdown_output += "No eligible findings with risk score > 0.5 were found.\n"
         return markdown_output
 
     for finding in alerts:
@@ -175,9 +174,9 @@ def convert_kb_to_markdown(knowledge_base_file_path, output_filename="knowledge_
     all_alerts = load_knowledge_base(knowledge_base_file_path)
     
     if all_alerts is None:
-        return False, f"Could not load or find knowledge base file: {knowledge_base_file_path}"
+        return False, f"Failed to load or find knowledge base file: {knowledge_base_file_path}"
     if not all_alerts:
-        print(f"Warning: Knowledge base '{knowledge_base_file_path}' is empty. An empty report will be generated.")
+        print(f"Warning: Knowledge base '{knowledge_base_file_path}' is empty. Generating empty report.")
     
     filtered_alerts = []
     for f in all_alerts:
@@ -202,17 +201,18 @@ def convert_kb_to_markdown(knowledge_base_file_path, output_filename="knowledge_
             f.write(markdown_content)
         return True, output_markdown_file
     except IOError as e:
-        return False, f"Could not write file {output_markdown_file}: {str(e)}"
+        return False, f"Failed to write file {output_markdown_file}: {str(e)}"
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Convert knowledge base from JSONL to Markdown format.")
+    parser = argparse.ArgumentParser(description="Convert knowledge base from JSONL format to Markdown format.")
     subparsers = parser.add_subparsers(dest='command', required=True)
     parser_kb = subparsers.add_parser('kb', help='Convert knowledge base file to Markdown.')
     parser_kb.add_argument("knowledge_base_file", help="Path to the knowledge base JSONL file.")
-    parser_kb.add_argument("-o", "--output", default="knowledge_base.md", help="Output Markdown filename.")
+    parser_kb.add_argument("-o", "--output", default="knowledge_base.md", help="Output Markdown file name.")
     parser_vr = subparsers.add_parser('vr', help='Generate verification report from a directory.')
-    parser_vr.add_argument("output_dir", help="Path to the directory containing verification_results.jsonl.")
-    parser_vr.add_argument("-o", "--output", default="verification_report.md", help="Output Markdown filename for the verification report.")
+    parser_vr.add_argument("output_dir", help="Directory path containing verification_results.jsonl.")
+    parser_vr.add_argument("-o", "--output", default="verification_report.md", help="Output Markdown file name for the verification report.")
+    parser_vr.add_argument("-i", "--input", help="Input verification_results.jsonl file (default: output_dir/verification_results.jsonl).")
     args = parser.parse_args()
 
     if args.command == 'kb':
@@ -223,8 +223,9 @@ if __name__ == '__main__':
             print(f"Error: {message}")
 
     elif args.command == 'vr':
-        success, message = generate_verification_report_md(args.output_dir, args.output)
+        results_file = args.input if hasattr(args, 'input') and args.input else None
+        success, message = generate_verification_report_md(args.output_dir, args.output, results_file)
         if success:
-            print(f"Successfully generated verification report at {message}")
+            print(f"Successfully generated verification report: {message}")
         else:
             print(f"Error: {message}")

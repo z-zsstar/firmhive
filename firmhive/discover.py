@@ -1,7 +1,9 @@
 import os
 import argparse
 
-BASE_FIRMWARE_DIR = "/Elements/karonte_datatset"
+# Default dataset root (anonymized). Can be overridden by env KARONTE_DATASET_DIR
+# or via the --base_dir argument.
+BASE_FIRMWARE_DIR = os.environ.get("KARONTE_DATASET_DIR", "/path/to/karonte_dataset")
 
 BRANDS_IN_ORDER = ["d-link", "NETGEAR", "Tenda", "TP_Link"]
 

@@ -6,8 +6,9 @@ DEFAULT_TASK="T5_COMPREHENSIVE_ANALYSIS"
 DEFAULT_MAX_WORKERS=10
 DEFAULT_PARALLEL_JOBS=8
 
-BASE_OUTPUT_DIR="results"
-FIRMWARE_BASE_DIR="/path/to/karonte_dataset"
+BASE_OUTPUT_DIR="result"
+# Dataset root (anonymized). Override by exporting KARONTE_DATASET_DIR.
+FIRMWARE_BASE_DIR="${KARONTE_DATASET_DIR:-/path/to/karonte_dataset}"
 
 METHOD="$DEFAULT_METHOD"
 TASK="$DEFAULT_TASK"
@@ -42,7 +43,7 @@ fi
 echo "Task results directory found: $task_results_dir"
 echo ""
 
-echo "Discovering targets from firmware dataset..."
+echo "Discovering targets from karonte dataset..."
 source_firmware_list=$(python3 firmhive/discover.py --base_dir "$FIRMWARE_BASE_DIR" | tail -n +2)
 
 if [ -z "$source_firmware_list" ]; then
@@ -97,7 +98,7 @@ for result_dir in $firmware_result_dirs; do
         original_firmware_path=$(find "$FIRMWARE_BASE_DIR" -type d -name "$firmware_name" | head -n 1)
         
         if [ -z "$original_firmware_path" ]; then
-            echo "   [WARNING] $firmware_name: Could not find original firmware directory named '$firmware_name' in $FIRMWARE_BASE_DIR, skipping verification."
+        echo "   [WARNING] $firmware_name: Could not find original firmware directory named '$firmware_name' in dataset root, skipping verification."
             exit 0
         fi
         echo "   [INFO] $firmware_name: Original firmware found: $original_firmware_path"

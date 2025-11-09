@@ -1,0 +1,125 @@
+# TL-WA701ND_V2_140324 (5 findings)
+
+---
+
+### Stack Buffer Overflow-wlanconfig_p2pgo_noa
+
+- **File/Directory Path:** `sbin/wlanconfig`
+- **Location:** `wlanconfig:0x004024b0 main+0xc00 (approximate address based on the 'p2pgo_noa' handling logic in the decompiled code)`
+- **Risk Score:** 8.5
+- **Confidence:** 9.0
+- **Description:** There is a stack buffer overflow vulnerability in the 'p2pgo_noa' subcommand processing of 'wlanconfig'. When an attacker provides multiple parameter sets, the program does not properly check write boundaries while parsing parameters, leading to a stack buffer overflow. Specifically, during the loop processing parameters, the write pointer 'pcVar14' initially points to the stack variable 'cStack_174' (a single character), but increments by 5 bytes each loop. When the loop count reaches the maximum value (iVar4=2), the write position exceeds the boundary of 'cStack_174', overwriting adjacent stack variables such as 'auStack_173' and 'iStack_168'. An attacker can manipulate the written values by controlling command line parameters (such as iteration count, offset value), thereby overwriting the return address or critical stack data. Trigger condition: Use the 'wlanconfig <interface> p2pgo_noa' command and provide at least three sets of parameters (each set contains iteration count, offset, and duration), for example 'wlanconfig wlan0 p2pgo_noa 1 1000 2000 2 2000 3000 3 3000 4000'. Exploitation method: Carefully craft parameter values to overwrite the return address pointing to shellcode or a gadget, achieving arbitrary code execution. Constraints: The number of parameters is limited by the program logic (maximum of three sets), but the value of each parameter is fully controllable, sufficient to complete the attack.
+- **Code Snippet:**
+  ```
+  // Relevant snippet extracted from decompiled code
+  pcVar18 = &cStack_174;
+  piVar16 = param_2 + 0xc;
+  iVar4 = 0;
+  iVar3 = *piVar16;
+  pcVar14 = pcVar18;
+  while( true ) {
+      if (iVar3 == 0) break;
+      iVar3 = (**(pcVar20 + -0x7fcc))(iVar3); // atoi conversion
+      *pcVar14 = iVar3; // Write to stack, potential overflow
+      // ... Other operations write to auStack_173
+      pcVar14 = pcVar14 + 5; // Pointer increment, potential boundary exceedance
+      iVar4 = iVar4 + 1;
+      if ((iVar3 == 0) || (iVar4 == 2)) break;
+  }
+  ```
+- **Keywords:** Command line parameters, ioctl socket path, Function symbols: main, fcn.00401950
+- **Notes:** The vulnerability was verified in the 'p2pgo_noa' subcommand processing. The overflow occurs before the ioctl call, so even if the ioctl fails (e.g., due to insufficient permissions), the overflow can still be triggered. The attack chain is complete: from untrusted input (command line) to dangerous operation (stack overflow overwriting return address). It is recommended to further verify exploit feasibility, for example through dynamic testing or checking stack layout. Associated files: No other files interact directly, but communication occurs with the kernel wireless driver via ioctl. Future analysis directions: Check if similar vulnerabilities exist in other subcommands (e.g., 'nawds'), and evaluate the presence of ASLR and stack protection mechanisms in the firmware.
+
+---
+### CommandInjection-WPS_set_ap_ssid_configuration
+
+- **File/Directory Path:** `sbin/hostapd`
+- **Location:** `hostapd:0x43737c sym.wps_set_ap_ssid_configuration`
+- **Risk Score:** 8.5
+- **Confidence:** 9.0
+- **Description:** A command injection vulnerability was discovered in the 'hostapd' binary, allowing attackers to execute arbitrary commands through malicious WPS messages. Vulnerability trigger condition: WPS function is enabled and the network interface is accessible. Attackers can send WPS messages over the network without requiring specific login credentials, but the user specifies that the attacker has connected to the device (which may include network layer access). Input data flows from WPS messages through multiple functions (such as `sym.eap_wps_config_set_ssid_configuration` and `sym.wps_set_ssid_configuration`), and is ultimately formatted via `sprintf` and passed to the `system` function without sanitization in `sym.wps_set_ap_ssid_configuration`. Exploitation method: Attackers forge WPS messages containing malicious commands (such as shell metacharacters), leading to command execution on the device. Boundary checks are missing, and input is directly embedded into the command string.
+- **Code Snippet:**
+  ```
+  // In the sym.wps_set_ap_ssid_configuration function
+  (**(loc._gp + -0x7ddc))(auStack_498, "cfg wpssave %s", uStackX_4); // uStackX_4 is the user-controlled parameter param_2
+  (**(loc._gp + -0x7948))(auStack_498); // Call system to execute command
+  ```
+- **Keywords:** param_2 in sym.wps_set_ap_ssid_configuration, WPS message data, eap_wps_cmp.conf file, system, sprintf
+- **Notes:** The vulnerability depends on the availability of the WPS interface; it may be enabled in the default configuration. Attackers may not need login credentials, but the user specified 'connected to the device', so network access might be sufficient. However, the user core requirement states that attackers have valid login credentials (non-root user), so the conditions here may not be entirely consistent. It is recommended to further verify WPS configuration and network isolation. Other functions (such as main or control interface handling) do not show the complete attack chain.
+
+---
+### BufferOverflow-LoginFunction
+
+- **File/Directory Path:** `usr/sbin/bpalogin`
+- **Location:** `bpalogin:0x004021e4 sym.login`
+- **Risk Score:** 7.5
+- **Confidence:** 8.0
+- **Description:** In the login function, when processing authentication responses, strcpy and strcat are used to copy strings to a fixed-size global buffer without boundary checks. An attacker can provide a long string through a malicious authentication server, causing a buffer overflow. The overflow may overwrite a function pointer in the global structure (e.g., at offset 0x308). When this pointer is called (e.g., during error handling), the execution flow can be controlled. Trigger condition: The attacker runs bpalogin and specifies the 'authserver' parameter to point to a malicious server, which returns an overly long string in the authentication response. Exploitation method: Carefully craft the response string to overwrite the function pointer to point to shellcode or a ROP chain, achieving code execution.
+- **Code Snippet:**
+  ```
+  0x004021c4      8f998024       lw t9, -sym.imp.strcpy(gp)  ; [0x405310:4]=0x8f998010
+  0x004021e4      0320f809       jalr t9
+  ; strcpy call, destination address is s1 + a0 (global buffer), source is s7 (stack buffer)
+  0x00402200      8f9980f8       lw t9, -sym.imp.strcat(gp)  ; [0x405100:4]=0x8f998010
+  0x00402210      0320f809       jalr t9
+  ; strcat call, appends string to the same global buffer
+  ```
+- **Keywords:** authserver, user, password, T_MSG_LOGIN_RESP, extract_valuestring
+- **Notes:** The vulnerability is in the global buffer, potentially bypassing ASLR; the attack chain requires the attacker to control the authentication server, but as a local user, it can be set via command-line parameters. It is recommended to further analyze the global structure layout and function pointer usage points.
+
+---
+### null-ptr-deref-athr_gmac_do_ioctl
+
+- **File/Directory Path:** `lib/modules/2.6.31/net/ag7240_mod.ko`
+- **Location:** `ag7240_mod.ko:sym.athr_gmac_do_ioctl (address 0x08005b54)`
+- **Risk Score:** 7.0
+- **Confidence:** 9.0
+- **Description:** In the athr_gmac_do_ioctl function, there is a NULL pointer dereference vulnerability when handling ioctl commands. When param_3 (ioctl command) is 0x89f3 or 0x89f7, the function directly calls (*NULL)(), causing a kernel crash. An attacker, as a non-root user, can trigger the vulnerability by accessing the relevant device file and sending these ioctl commands, resulting in a denial of service. Trigger conditions include: device file permissions allowing non-root user access, and the attacker possessing valid login credentials. The exploitation method is simple and direct, requiring no complex input.
+- **Code Snippet:**
+  ```
+  uint sym.athr_gmac_do_ioctl(uint param_1,uint param_2,int32_t param_3)
+  {
+      uint uVar1;
+      
+      if (param_3 == 0x89f3) {
+          uVar1 = (*NULL)();
+          return uVar1;
+      }
+      if (0x89f3 < param_3) {
+          if (param_3 == 0x89f6) {
+              halt_baddata();
+          }
+          if (param_3 == 0x89f7) {
+              uVar1 = (*NULL)();
+              return uVar1;
+          }
+      }
+      else if (param_3 == 0x89f2) {
+          halt_baddata();
+      }
+      return 0xffffffff;
+  }
+  ```
+- **Keywords:** ioctl command 0x89f3, ioctl command 0x89f7
+- **Notes:** The vulnerability evidence is clear, but further verification is needed regarding whether device file permissions (such as relevant files under /dev/) allow non-root user access. This vulnerability primarily leads to denial of service and may not be directly usable for privilege escalation. It is recommended to check system configuration to confirm exploitability. No other buffer overflow or memory corruption vulnerabilities were found in this file.
+
+---
+### DOM-XSS-WzdEndRpm
+
+- **File/Directory Path:** `web/userRpm/WzdEndRpm.htm`
+- **Location:** `WzdEndRpm.htm: JavaScript functions loadWlanCfg, loadWlanMbss, loadNetworkCfg, etc.`
+- **Risk Score:** 6.5
+- **Confidence:** 7.0
+- **Description:** Multiple potential DOM-based XSS vulnerabilities were discovered in the 'WzdEndRpm.htm' file. An attacker can inject malicious JavaScript code by modifying NVRAM configuration variables (such as wireless SSID, security key, etc.). When a user visits this configuration summary page, the code is executed via `innerHTML` assignment. Specific trigger conditions include: the attacker first modifies controllable configuration values through other configuration interfaces (such as the wireless settings page) to include malicious scripts; then, when accessing the 'WzdEndRpm.htm' page, the script automatically executes. Potential exploitation methods include stealing session cookies, redirecting users, or performing unauthorized actions. Since the attacker possesses valid login credentials, this attack chain is feasible, but the risk is limited by the user's session permissions. The lack of input validation and output escaping for configuration data in the code leads to the existence of this vulnerability.
+- **Code Snippet:**
+  ```
+  Example code snippet from the loadWlanCfg function:
+  document.getElementById("localSsid").innerHTML = getWlanCfg("ssid1");
+  document.getElementById("localSecText").innerHTML = getWlanCfg("secText");
+  document.getElementById("brlSsid").innerHTML = getWlanCfg("brl_ssid");
+  // Similar code uses innerHTML in multiple places to display configuration data, lacking escaping
+  ```
+- **Keywords:** getWlanCfg, getWanCfg, getLanCfg, ssid1, secText, brl_ssid, wanip, usrName, password
+- **Notes:** The exploitation of this vulnerability relies on the attacker's ability to modify configuration data through other interfaces, but this is feasible given the attacker possesses login credentials. Further verification is needed to confirm whether functions like `getWlanCfg` read data from NVRAM and whether the backend filters input. It is recommended to check related configuration pages (such as wireless settings) to confirm the data flow. The vulnerability may impact session security, but non-root user permissions might limit the scope of damage.
+
+---

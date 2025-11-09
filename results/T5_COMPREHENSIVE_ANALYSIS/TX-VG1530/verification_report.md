@@ -1,0 +1,807 @@
+# TX-VG1530 - Verification Report (25 findings)
+
+---
+
+## Original Information
+
+- **File/Directory Path:** `web/main/ftpSrv.htm`
+- **Location:** `ftpSrv.htm: checkConflictPort function and doApply function`
+- **Description:** A potential Denial of Service (DoS) attack chain was discovered in the 'ftpSrv.htm' file. An attacker can trigger the `checkConflictPort` function by modifying the FTP service port number, causing other network services (such as port mapping, DMZ, UPnP) to be disabled. Specific attack steps: 1) The attacker logs into the web interface as a non-root user; 2) Navigates to the FTP settings page; 3) Changes the port number to one that conflicts with an existing service (e.g., port 80 for HTTP service); 4) Clicks the 'Apply' button to trigger the `doApply` function; 5) The `checkConflictPort` function detects the conflict and pops up a confirmation dialog; 6) If the user confirms (or bypasses it via automation tools), the conflicting service is disabled via the `$.act` call. This may lead to service interruption, affecting network functionality. The attack relies on user interaction (confirmation dialog), but this can be bypassed using browser automation tools (like Selenium).
+- **Code Snippet:**
+  ```
+  function checkConflictPort(port) {
+    // ... Port conflict check logic
+    if (confirm(c_str.ftp_vs_conflict)) {
+      $.act(ACT_SET, WAN_IP_CONN_PORTMAPPING, this.__stack, null, ["portMappingEnabled=0"]);
+    } else {
+      ret = false;
+      return;
+    }
+    // ... Similar logic for other services
+  }
+  
+  function doApply() {
+    // ... Port validation
+    if ($.id("inetAccess_en").checked) {
+      if(0 == checkConflictPort(port)) {
+        return;
+      }
+      $.act(ACT_SET,FTP_SERVER,null,null,["accessFromInternet=1"]);
+    }
+    // ... Set port
+  }
+  ```
+- **Notes:** The attack chain is complete but requires user interaction (confirmation dialog). Actual exploitability depends on whether the attacker can automate web interactions. It is recommended to further analyze backend processing functions (such as the implementation of `$.act`) to confirm the impact of permission checks and service modifications. Related files may include other configuration pages (like 'usbFolderBrowse.htm') and backend components.
+
+## Verification Conclusion
+
+- **Description Accuracy:** `partially`
+- **Is Real Vulnerability:** `True`
+- **Risk Level:** `Medium`
+- **Detailed Reason:** The attack chain described in the alert is largely accurate, but there are inaccuracies: the code in the doApply function explicitly prevents the use of port 80 (and other reserved ports), so the example using port 80 is not feasible. However, an attacker can still choose other non-reserved ports (such as 8080) that conflict with existing services (like port mapping, DMZ, UPnP) to trigger the vulnerability. The attacker model is an authenticated web user (non-root) with permissions to modify FTP settings. The input is controllable (port number can be modified via the web form), the path is reachable (triggered via the 'Apply' button on the FTP settings page calling the doApply function), and the actual impact is the disabling of critical network services (like port mapping, DMZ), leading to a denial of service. User interaction (confirmation dialog) can be bypassed using browser automation tools (like Selenium), making the attack feasible. Reproducible PoC steps: 1) Log into the web interface as an authenticated user; 2) Access the FTP settings page (ftpSrv.htm); 3) Change the service port to a non-reserved port that conflicts with an existing service (e.g., 8080); 4) Ensure 'Internet Access' is enabled; 5) Click the 'Apply' button; 6) Simulate clicking the confirmation dialog via automation tools; 7) Verify that the conflicting service (e.g., port mapping) is disabled. The vulnerability risk is medium, as it requires authentication and specific port conditions, but automation tools can increase exploitability.
+
+## Verification Metrics
+
+- **Verification Duration:** 173.43 s
+- **Token Usage:** 216540
+
+---
+
+## Original Information
+
+- **File/Directory Path:** `etc/default_config.xml`
+- **Location:** `default_config.xml (in the Services.StorageService.UserAccount instance=1 section)`
+- **Description:** Default administrator credentials (Username: admin, Password: admin) are configured in the StorageService section. An attacker (a non-root user who already possesses valid login credentials) may use these credentials to log into the management interface, elevate privileges to super user (X_TP_SupperUser val=1), and thereby perform dangerous operations such as modifying system configurations, enabling services, or accessing sensitive data. Trigger conditions include the management interface being accessible and the credentials not being changed. Potential exploitation methods include privilege escalation and complete system control.
+- **Code Snippet:**
+  ```
+  <UserAccount instance=1 >
+    <Enable val=1 />
+    <Username val=admin />
+    <Password val=admin />
+    <X_TP_Reference val=0 />
+    <X_TP_SupperUser val=1 />
+  </UserAccount>
+  ```
+- **Notes:** The evidence clearly shows default credentials. The attack chain requires verification of the management interface's accessibility, but assuming the attacker is already connected to the device, exploitation might be possible from the internal network. It is recommended to check other files (such as web interface scripts) to confirm the attack path.
+
+## Verification Conclusion
+
+- **Description Accuracy:** `partially`
+- **Is Real Vulnerability:** `False`
+- **Risk Level:** `N/A`
+- **Detailed Reason:** The alert accurately identified the presence of default administrator credentials (Username: admin, Password: admin) and super user privileges (X_TP_SupperUser val=1) in the StorageService section of the 'etc/default_config.xml' file. The evidence comes from the file content, confirming the existence of the default credentials. However, verifying the exploitability of the vulnerability requires the complete attack chain: input controllability, path reachability, and actual impact. The attacker model is 'a non-root user who already possesses valid login credentials', but the evidence does not show how these default credentials could be used for the management interface or any accessible service, nor does it prove the existence of a management interface or its use of these credentials for authentication. Therefore, although the default credentials constitute a potential risk, based on the provided evidence, it is not possible to verify the complete propagation path from credentials to privilege escalation or the actual exploitability. The lack of evidence supporting the accessibility of the management interface and the usage scenario of the credentials means it cannot be confirmed as a real vulnerability.
+
+## Verification Metrics
+
+- **Verification Duration:** 202.25 s
+- **Token Usage:** 270558
+
+---
+
+## Original Information
+
+- **File/Directory Path:** `usr/bin/voip`
+- **Location:** `voip:0x13094 fcn.00013094 (multiple addresses: 0x134e0, 0x135d0, 0x136e0, 0x1381c, 0x139a8, 0x13b04, 0x13c64)`
+- **Description:** The vulnerability arises from the handling of IPC messages in the voip process. IPC messages received via mipc_receive_msg are processed in fcn.00015194, which dispatches to various functions based on message ID. Cases 1 and 2 call fcn.00013d5c and fcn.00013eb8, respectively, which in turn call fcn.00013094. fcn.00013094 constructs shell commands using sprintf and strcat with parameters derived directly from IPC messages (e.g., IP addresses, netmasks, gateways) and executes them via system calls. The lack of input sanitization allows command injection if an attacker controls these parameters. For example, parameters like IP addresses could contain shell metacharacters (e.g., ';' or '|') to inject additional commands. The trigger condition is sending a crafted IPC message with malicious data to the voip process, which is accessible to authenticated users.
+- **Code Snippet:**
+  ```
+  // Example from fcn.00013094 showing command construction and system call
+  sym.imp.sprintf(piVar6 + -0x14, *0x13d28, piVar6[-0x9b]);  // Format string with parameter
+  sym.imp.strcat(piVar6 + -0x25c, piVar6 + -0x14);          // Append to command buffer
+  iVar1 = sym.imp.system(piVar6 + -0x25c);                   // Execute command
+  ```
+- **Notes:** The vulnerability requires further validation through dynamic testing to confirm exploitability. The attack chain involves IPC communication, which may have access controls. Assumed that authenticated users can send IPC messages to the voip process. Recommended to analyze the IPC mechanism and message structure for precise exploitation. Related functions: fcn.00013d5c, fcn.00013eb8, fcn.00015194, fcn.00015c9c.
+
+## Verification Conclusion
+
+- **Description Accuracy:** `inaccurate`
+- **Is Real Vulnerability:** `False`
+- **Risk Level:** `Low`
+- **Detailed Reason:** The alert describes a command injection vulnerability in fcn.00013094 where IPC message parameters (e.g., IP addresses, netmasks, gateways) are used unsanitized in shell commands via sprintf and strcat, followed by system calls. Analysis confirms the code flow from IPC dispatch to command execution. However, the parameters are passed as integers and converted to string representations using fcn.00012fec, which produces dotted-decimal IP strings (e.g., '192.168.1.1') containing only digits and dots. These strings lack shell metacharacters (e.g., ';', '|', '&') that could enable command injection. The attack model assumes authenticated users can send crafted IPC messages, but input controllability is limited to integer values that are safely formatted. Without evidence of string parameters with metacharacters or inadequate sanitization, the vulnerability is not exploitable. Thus, the alert is inaccurate in claiming command injection.
+
+## Verification Metrics
+
+- **Verification Duration:** 208.30 s
+- **Token Usage:** 349214
+
+---
+
+## Original Information
+
+- **File/Directory Path:** `usr/bin/upnpd`
+- **Location:** `fcn.00016694:0x166a4 (system call), fcn.00018380:0x183bc (system call), Possible event handler functions such as fcn.00017ac0`
+- **Description:** In the 'upnpd' binary, a potential command injection vulnerability chain was discovered. Attackers can inject commands by sending malicious UPnP requests (such as AddPortMapping or DeletePortMapping). Specifically, function fcn.00016694 directly calls the 'system' function, and its parameter param_1 may come from external input and is unvalidated. Furthermore, function fcn.00018380 uses snprintf to construct a command string before calling 'system', but the input source may not be adequately filtered. UPnP requests are received via the network interface and, after parsing, are passed to these functions. An attacker, as an authenticated non-root user, can craft specialized requests embedding shell metacharacters (such as ';', '|', or '`') in the parameters, thereby executing arbitrary commands. Trigger conditions include sending UPnP SOAP requests containing malicious parameters. Exploitation methods may include injecting commands in fields like 'NewPortMappingDescription' or similar, leading to privilege escalation or device control.
+- **Code Snippet:**
+  ```
+  // fcn.00016694 code snippet
+  uint fcn.00016694(uint param_1) {
+      int32_t iVar1;
+      iVar1 = sym.imp.system(param_1); // Direct call to system, param_1 may come from external input
+      // ...
+  }
+  
+  // fcn.00018380 code snippet (partial)
+  sym.imp.snprintf(piVar6 + -0xb, 0x20, *0x18708, *0x1870c); // Construct command string
+  iVar1 = sym.imp.system(piVar6 + -0xb); // Execute system command
+  // Similar pattern repeats elsewhere
+  ```
+- **Notes:** Evidence is based on static analysis, showing 'system' calls associated with potential external input. However, dynamic validation is needed to confirm the input source and exploitability. Further analysis of UPnP request parsing functions (such as fcn.00017ac0) and data flow is recommended. Related files include /var/tmp/upnpd/pm.db (port mapping database) and configuration file /var/tmp/upnpd/upnpd.conf. The attack chain may involve multiple components, including XML parsing and action handling.
+
+## Verification Conclusion
+
+- **Description Accuracy:** `accurate`
+- **Is Real Vulnerability:** `True`
+- **Risk Level:** `High`
+- **Detailed Reason:** The alert accurately describes a command injection vulnerability in the 'upnpd' binary. Function fcn.00016694 directly calls system with a parameter built via snprintf in fcn.000170c0, using format strings that incorporate external inputs from UPnP requests without sanitization. The attack path is reachable by unauthenticated remote attackers on the local network via UPnP SOAP requests (e.g., AddPortMapping). For example, an attacker can send a malicious UPnP request with a parameter like NewPortMappingDescription containing shell metacharacters (e.g., '; cat /etc/passwd') to execute arbitrary commands. PoC steps: 1) Craft a UPnP SOAP request (e.g., AddPortMapping) with a malicious NewPortMappingDescription value such as '; touch /tmp/pwned'. 2) Send the request to the upnpd service on the target device. 3) The command will be executed when the system call is invoked, demonstrating code execution. This vulnerability allows full device control and is rated High due to the potential for privilege escalation and network compromise.
+
+## Verification Metrics
+
+- **Verification Duration:** 287.84 s
+- **Token Usage:** 540932
+
+---
+
+## Original Information
+
+- **File/Directory Path:** `web/omci/xml.js`
+- **Location:** `xml.js functions createInput, createbridge, creategemport, gemhtml`
+- **Description:** Multiple functions (such as `createInput`, `createbridge`, `creategemport`, `gemhtml`) directly write data loaded from the XML file 'me_mib.xml' into the DOM using `document.writeln` or `innerHTML`, without sanitizing or encoding the data content. This allows attackers to inject malicious JavaScript code. Specific manifestation: When a user triggers these functions through UI elements (such as button clicks), if the XML data contains script tags (e.g., `<script>alert('XSS')</script>`), it will be executed in a new window or the current page. Trigger conditions include: the attacker can modify the content of the 'me_mib.xml' file (e.g., through file upload or configuration vulnerabilities), and the victim user accesses the relevant page and interacts. Potential exploitation methods: session theft, privilege escalation, or arbitrary operation execution. In the code logic, data is obtained via `mib.getElementsByTagName` and directly concatenated into an HTML string for writing.
+- **Code Snippet:**
+  ```
+  // Example from the createInput function
+  function createInput(name,type)
+  {
+      myWindow=window.open();
+      var a="";
+      try {
+          node=mib.getElementsByTagName(name)[0];
+          father=node.childNodes;
+      } catch(e) {
+          alert(e.message);
+          type.disabled="disabled";
+          return;
+      }
+      if(father==null) return;
+      for(var j=0;j<father.length;j++) {
+          child=father[j].childNodes;
+          n=j+1;
+          var b="ME number: "+n+"<br>";
+          for(var i=0;i<25;i++) {
+              try { a=child[i].text+"\n"; } catch(e) { break; }
+              b=b+"<div>"+a+"</div>"; // Unsanitized data directly concatenated
+          }
+          myWindow.document.writeln(b,"<br>"); // Directly written to DOM, potential script execution
+      }
+      type.title=a;
+  }
+  ```
+- **Notes:** The attack chain is complete but relies on the attacker being able to modify the 'me_mib.xml' file. It is recommended to verify file system permissions and upload mechanisms. Associated files may include web interface related HTML/JS. Subsequent analysis should focus on file upload functionality or XML parsing configuration.
+
+## Verification Conclusion
+
+- **Description Accuracy:** `accurate`
+- **Is Real Vulnerability:** `True`
+- **Risk Level:** `High`
+- **Detailed Reason:** The security alert accurately describes an XSS vulnerability. Evidence comes from the analysis of the xml.js file: functions such as createInput and gemhtml directly load data from 'me_mib.xml' (via mib.getElementsByTagName) and directly concatenate it into HTML strings written to the DOM using document.writeln or innerHTML, without using any encoding or sanitization. Attacker model: The attacker can modify the content of the 'me_mib.xml' file (e.g., through a file upload vulnerability or local write permissions, evidence mentions the file path is a symbolic link '/tmp/me_mib.xml'), and when the victim user accesses the relevant web page (such as triggering a button or page load), the malicious script (e.g., `<script>alert('XSS')</script>`) will be executed. Complete attack chain: Attacker controls XML content → Data loading → Direct write to DOM → Script execution. PoC steps: 1. Attacker modifies the 'me_mib.xml' file, inserting `<script>alert('XSS')</script>` into relevant nodes; 2. Victim visits the page (e.g., omci.html), triggering the function (e.g., gemhtml is automatically called on load, or user clicks a button calling createInput); 3. Malicious script executes in a new window or the current page, potentially leading to session theft or arbitrary operations. The vulnerability is practically exploitable, risk is high.
+
+## Verification Metrics
+
+- **Verification Duration:** 321.80 s
+- **Token Usage:** 561165
+
+---
+
+## Original Information
+
+- **File/Directory Path:** `usr/bin/vsftpd`
+- **Location:** `vsftpd:0x1e0b0 fcn.0001e05c`
+- **Description:** Function fcn.0001e05c calls strcpy at addresses 0x1e0b0 and 0x1e138, similarly lacking boundary checks. This function processes user input or configuration data, potentially triggered via FTP commands (such as USER or PASS). An attacker can cause a buffer overflow by sending an overly long username or password. Trigger condition: The attacker is authenticated and can send malicious FTP commands; input data must exceed the buffer size. Exploitation methods include overwriting the return address or function pointers on the stack.
+- **Code Snippet:**
+  ```
+  0x0001e0b0      bl sym.imp.strcpy           ; char *strcpy(char *dest, const char *src)
+  0x0001e138      bl sym.imp.strcpy           ; char *strcpy(char *dest, const char *src)
+  ```
+- **Notes:** FTP command processing is a common attack vector. The actual input length limit and buffer size need to be tested. May be affected by vsftpd configuration (e.g., max_clients).
+
+## Verification Conclusion
+
+- **Description Accuracy:** `accurate`
+- **Is Real Vulnerability:** `True`
+- **Risk Level:** `High`
+- **Detailed Reason:** The alert description is accurate. Function fcn.0001e05c indeed calls strcpy at addresses 0x1e0b0 and 0x1e138 without boundary checks. Through call context analysis, fcn.000139f4 handles FTP directory creation commands (e.g., MKD), and the user-input directory name (via parameter r5) is passed to fcn.0001e05c. The stack buffer size is 128 bytes (set by memset), but strcpy directly copies user-controlled input. Attacker model: An authenticated remote attacker (since vsftpd requires authentication to execute the MKD command). Path reachable: After authentication, sending an MKD command can trigger the vulnerability. Actual impact: Buffer overflow may overwrite the return address or function pointers, leading to arbitrary code execution. PoC steps: 1. Attacker authenticates via FTP (e.g., using USER and PASS commands). 2. Send an MKD command with an overly long directory name (length > 128 bytes), for example: 'MKD ' + 'A' * 200. 3. Trigger the buffer overflow, potentially causing a crash or arbitrary code execution.
+
+## Verification Metrics
+
+- **Verification Duration:** 357.02 s
+- **Token Usage:** 613899
+
+---
+
+## Original Information
+
+- **File/Directory Path:** `sbin/hotplug`
+- **Location:** `hotplug:0x10db8 system_call`
+- **Description:** A potential command injection vulnerability was discovered in the 'hotplug' program. The program obtains input from the environment variable 'ACTION' and, when processing 'remove' events, uses 'snprintf' to construct a command string, which is then executed via the 'system' function. The environment variable 'ACTION' is a user-controllable input point, but the program does not perform adequate validation or filtering of the input, allowing an attacker to inject malicious commands to execute arbitrary code. Trigger condition: When a hotplug event triggers the 'remove' action, the program executes the constructed command. Exploitation method: An attacker can set the 'ACTION' environment variable to a value containing shell metacharacters (such as ';', '|', or '`'), thereby injecting and executing arbitrary commands.
+- **Code Snippet:**
+  ```
+  0x00010db8      9bfeffeb       bl sym.imp.system           ; int system(const char *string)
+  ...
+  0x00010d90      40019fe5       ldr r0, str.ACTION          ; [0x10dd8:4]=0x11060 str.ACTION
+  0x00010d94      6cfeffeb       bl sym.imp.getenv           ; char *getenv(const char *name)
+  0x00010d98      10000be5       str r0, [fp, -0x10]         ; 16
+  0x00010d9c      10301be5       ldr r3, [fp, -0x10]         ; 16
+  0x00010da0      000053e3       cmp r3, 0
+  0x00010da4      0100001a       bne 0x10db0
+  ...
+  0x00010db0      492f4be2       sub r2, fp, 0x124
+  0x00010db4      24104be2       sub r1, fp, -0x24
+  0x00010db8      9bfeffeb       bl sym.imp.system           ; int system(const char *string)
+  ```
+- **Notes:** Exploiting this vulnerability requires the attacker to be able to control the environment variable 'ACTION', which might be achieved through a logged-in user or network request. It is recommended to further verify how the environment variable is set and the program's execution context to confirm exploitability. Associated files may include startup scripts or network service components.
+
+## Verification Conclusion
+
+- **Description Accuracy:** `inaccurate`
+- **Is Real Vulnerability:** `False`
+- **Risk Level:** `N/A`
+- **Detailed Reason:** The security alert description is inaccurate. Analysis of the evidence shows: 1) The program obtains input from the environment variable 'ACTION', but it is only used for comparison with the hardcoded string 'remove' (strcmp), not for constructing the command string. 2) The system call at 0x10db8 executes the fixed command 'usbp_umount', which is hardcoded in the binary and not constructed using snprintf or any user input. 3) The attacker-controllable input (ACTION) can only determine whether the fixed command is executed, and cannot be used to inject malicious code. Therefore, no command injection vulnerability exists. The attacker model is: the attacker must be able to set the environment variable ACTION (e.g., through local user privileges or a network service), but even if ACTION is set to 'remove', it can only trigger the execution of the fixed command, with no possibility of arbitrary code execution.
+
+## Verification Metrics
+
+- **Verification Duration:** 358.22 s
+- **Token Usage:** 631670
+
+---
+
+## Original Information
+
+- **File/Directory Path:** `usr/lib/libi2c_mipc_client.so`
+- **Location:** `libi2c_mipc_client.so:0xa2c I2c_cli_show_xvr_thresholds`
+- **Description:** The function I2c_cli_show_xvr_thresholds exhibits the same stack-based buffer overflow vulnerability as I2c_cli_show_xvr_a2d_values. It uses strcpy to copy 'param_1' into a 248-byte stack buffer without bounds checking. An attacker with CLI access can provide a long input to overflow the buffer and potentially execute arbitrary code. The function is part of IPC communication via mipc_send_cli_msg.
+- **Code Snippet:**
+  ```
+  if (*(puVar2 + -0x10c) != 0) {
+      sym.imp.strcpy(puVar2 + iVar1 + -0x104, *(puVar2 + -0x10c));
+  }
+  ```
+- **Notes:** Similar to I2c_cli_show_xvr_a2d_values, this function is vulnerable. The consistency across multiple CLI functions suggests a pattern of insecure coding. Verification of the input context is recommended.
+
+## Verification Conclusion
+
+- **Description Accuracy:** `accurate`
+- **Is Real Vulnerability:** `True`
+- **Risk Level:** `High`
+- **Detailed Reason:** The security alert accurately describes the stack buffer overflow vulnerability. The decompiled code shows that the function I2c_cli_show_xvr_thresholds uses strcpy to copy param_1 to a stack buffer (effective size 248 bytes) without any bounds checking. The attacker model is an authenticated CLI user (e.g., via telnet, ssh, or web CLI) who can call this function and provide long input. Full attack chain: Attacker controls param_1 input -> strcpy copies to stack buffer -> overflow overwrites return address -> potential arbitrary code execution. PoC steps: The attacker needs to trigger the function call (e.g., by sending a specific CLI command) and provide a string longer than 248 bytes (e.g., 'A' * 260 can overwrite the return address); a carefully crafted payload can include shellcode or a ROP chain to control the flow. The vulnerability risk is high because embedded devices may lack ASLR or NX mitigation measures.
+
+## Verification Metrics
+
+- **Verification Duration:** 224.63 s
+- **Token Usage:** 436749
+
+---
+
+## Original Information
+
+- **File/Directory Path:** `usr/bin/vsftpd`
+- **Location:** `vsftpd:0x1c1cc fcn.0001bf54`
+- **Description:** In the fcn.0001bf54 function of vsftpd, at address 0x1c1cc, strcpy is used to copy data without boundary checks. The target buffer is a local variable on the stack, and the source data is read from a file (such as '/var/vsftp/var/%s'). If an attacker can control the file content (for example, by uploading or modifying a user configuration file), it may trigger a stack buffer overflow, leading to code execution. Trigger conditions include: the attacker possesses valid login credentials and can access and modify the relevant file; the file content must be long enough to overwrite the return address. Exploitation methods may include crafting file content to inject shellcode or ROP chains.
+- **Code Snippet:**
+  ```
+  0x0001c1c4      add r0, dest                ; char *dest
+  0x0001c1c8      add r1, src                 ; const char *src
+  0x0001c1cc      bl sym.imp.strcpy           ; char *strcpy(char *dest, const char *src)
+  ```
+- **Notes:** Further verification is needed regarding the writability of the file path and specific exploitation conditions. Attackers may upload malicious files via FTP commands (such as STOR) or exploit other vulnerabilities to modify files. It is recommended to check vsftpd configuration and file permissions.
+
+## Verification Conclusion
+
+- **Description Accuracy:** `accurate`
+- **Is Real Vulnerability:** `True`
+- **Risk Level:** `High`
+- **Detailed Reason:** The alert accurately describes a stack buffer overflow vulnerability in vsftpd. Evidence from disassembly shows strcpy at 0x1c1cc copying user-controlled data from file '/var/vsftp/var/%s' to stack buffer 'dest' without bounds checks. The attacker model requires authenticated FTP access to write malicious content to the user-specific file. The code path is reachable when file content contains 'vsftpd', and fgets allows input up to 255 bytes, sufficient to overflow the 56-byte distance to the return address. Exploitation can lead to arbitrary code execution. PoC: As an authenticated user, create a file at /var/vsftp/var/<username> with a line containing 'vsftpd' followed by a payload exceeding 56 bytes (e.g., shellcode or ROP chain) to overwrite the return address and gain code execution.
+
+## Verification Metrics
+
+- **Verification Duration:** 456.41 s
+- **Token Usage:** 695842
+
+---
+
+## Original Information
+
+- **File/Directory Path:** `usr/lib/libomci_mipc_client.so`
+- **Location:** `libomci_mipc_client.so:0x00001c80 dbg.omci_cli_debug_set_frame_dump`
+- **Description:** Multiple CLI functions (e.g., 'dbg.omci_cli_debug_set_frame_dump') use 'strcpy' to copy input strings to fixed-size stack buffers without bounds checking, leading to buffer overflows. For instance, 'dbg.omci_cli_debug_set_frame_dump' copies 'param_1' (a string) to a 256-byte stack buffer using 'strcpy'. If 'param_1' is longer than 256 bytes, it overflows the buffer, potentially allowing code execution. These functions are invoked via CLI commands, and an attacker with login credentials can provide crafted long strings to trigger the overflow. The vulnerability is triggered when the input string exceeds the buffer size, and the function sends the data via IPC using 'mipc_send_cli_msg'.
+- **Code Snippet:**
+  ```
+  if (puVar2[-0x42] != 0) {
+      sym.imp.strcpy(puVar2 + -0x100, puVar2[-0x42]);
+  }
+  ```
+- **Notes:** This vulnerability affects numerous CLI functions (over 70 instances of 'strcpy' found). Exploitation depends on CLI accessibility to non-root users. Recommend reviewing command injection points in system services that use these functions.
+
+## Verification Conclusion
+
+- **Description Accuracy:** `accurate`
+- **Is Real Vulnerability:** `True`
+- **Risk Level:** `High`
+- **Detailed Reason:** Decompiled code shows that the function dbg.omci_cli_debug_set_frame_dump uses strcpy to copy the input string param_1 to a fixed-size stack buffer (256 bytes) without any bounds checking. If param_1 is longer than 256 bytes, it will cause a buffer overflow. The attacker model is an authenticated user (with CLI login credentials) who can pass a malicious long string as a parameter by executing a CLI command. The code path is reachable: the function executes strcpy when param_1 is not null, then calls mipc_send_cli_msg, but the overflow may occur before the call, overwriting the return address or local variables on the stack, allowing arbitrary code execution. Proof of Concept (PoC): An attacker can construct a string longer than 256 bytes (for example, using Python: 'A' * 260) and pass it as a CLI command parameter to trigger the overflow. Evidence comes from the decompiled code: the strcpy call is executed directly after the conditional check, and the buffer definition is clear.
+
+## Verification Metrics
+
+- **Verification Duration:** 140.10 s
+- **Token Usage:** 140818
+
+---
+
+## Original Information
+
+- **File/Directory Path:** `usr/lib/libpm_mipc_client.so`
+- **Location:** `libpm_mipc_client.so:0x1370 dbg.Apm_cli_set_pm_interval`
+- **Description:** There is a stack buffer overflow vulnerability in the function dbg.Apm_cli_set_pm_interval. Due to the use of the strcpy function to copy the user-controlled parameter param_1 to a fixed-size stack buffer (estimated 256 bytes) without length validation, an attacker can overwrite the return address, frame pointer, or other critical data on the stack by providing a string larger than the buffer size, leading to arbitrary code execution. Trigger condition: An attacker (a non-root user with valid login credentials) can call this function via CLI command or IPC interface and control the param_1 parameter (e.g., by passing a long string). Exploitation method: Construct a long string containing shellcode or overwrite the return address to jump to attacker-controlled code, thereby escalating privileges or performing malicious operations. The vulnerability lacks boundary checks; it only verifies that param_1 is non-zero but does not check its length, making it easy for an attacker to trigger the overflow.
+- **Code Snippet:**
+  ```
+  uchar dbg.Apm_cli_set_pm_interval(uint param_1,uint param_2) { ... if (puVar2[-0x42] != 0) { sym.imp.strcpy(puVar2 + -0x100, puVar2[-0x42]); } ... }
+  ```
+- **Notes:** Buffer size and stack layout need further verification (e.g., using a debugger to confirm the overflow point); the function may be called via IPC or CLI commands, requiring the attacker to have permissions; it is recommended to analyze the calling context (such as network services or CLI handlers) and perform practical tests for exploitability; related files may include components that call this function (such as apm or network daemons).
+
+## Verification Conclusion
+
+- **Description Accuracy:** `accurate`
+- **Is Real Vulnerability:** `True`
+- **Risk Level:** `High`
+- **Detailed Reason:** Alert description is accurate: Decompiled code confirms the function uses strcpy to copy param_1 to a fixed 256-byte stack buffer (auStack_10c) without length validation, only checking that param_1 is non-zero. Input is controllable: An attacker (a non-root user with valid login credentials) can call the function via CLI or IPC interface and control the param_1 parameter. Path is reachable: The function is called via mipc_send_cli_msg, and there are no additional barriers in the code preventing an attacker from triggering the vulnerability. Actual impact: Stack buffer overflow can overwrite the return address, frame pointer, etc., leading to arbitrary code execution, potentially escalating privileges or performing malicious operations. Exploitability verified: An attacker can construct a string longer than 256 bytes (e.g., containing shellcode or ROP payload) as param_1 to trigger the overflow. PoC steps: 1. Attacker logs in with valid credentials; 2. Calls the dbg.Apm_cli_set_pm_interval function via CLI command or IPC; 3. Passes a long string (e.g., 256+ bytes, containing malicious payload); 4. Overflows the buffer, controlling the execution flow. The vulnerability risk is high because the attack chain is complete and the impact is severe.
+
+## Verification Metrics
+
+- **Verification Duration:** 151.37 s
+- **Token Usage:** 111495
+
+---
+
+## Original Information
+
+- **File/Directory Path:** `usr/lib/libomci_mipc_client.so`
+- **Location:** `libomci_mipc_client.so:0x0000524c dbg.omci_api_call`
+- **Description:** The function 'dbg.omci_api_call' contains a buffer overflow vulnerability due to the use of 'memcpy' without bounds checking. The function copies data from 'param_2' (user-controlled input) to a stack buffer of fixed size (2048 bytes) using 'param_3' (length) without validating if 'param_3' exceeds the buffer size. This can lead to stack-based buffer overflow, allowing an attacker to overwrite return addresses and execute arbitrary code. The function is central to API handling and is called with untrusted data from IPC or CLI sources. An attacker with login credentials could craft a malicious IPC message or API call with a large 'param_3' to trigger the overflow. The vulnerability is triggered when 'param_2' is non-null and 'param_3' is larger than 2048 bytes.
+- **Code Snippet:**
+  ```
+  sym.imp.memcpy(puVar2 + 0 + -0x800, *(puVar2 + *0x53c4 + 4), *(puVar2 + *0x53c8 + 4));
+  ```
+- **Notes:** The vulnerability is directly in the code and can be exploited if the calling process passes untrusted input. Further analysis of callers is needed to confirm the full attack chain, but the library's use in IPC and CLI contexts makes exploitation likely. Recommend analyzing processes that use this library for input validation flaws.
+
+## Verification Conclusion
+
+- **Description Accuracy:** `accurate`
+- **Is Real Vulnerability:** `True`
+- **Risk Level:** `High`
+- **Detailed Reason:** The security alert accurately describes a buffer overflow vulnerability. The evidence is as follows: The function dbg.omci_api_call (address 0x0000524c) in the disassembly code shows that it uses memcpy (0x000052fc) to copy user-controlled arg2 data to a stack buffer, using user-controlled arg3 as the length, without bounds checking. The stack buffer size is set to 0x804 bytes (2052 bytes) via memset (0x000052a0), but memcpy does not verify if arg3 exceeds this size. The function is exported as a global symbol (confirmed via is and iE commands), indicating it can be called by external programs. The attacker model is an authenticated user (local or remote, e.g., via CLI or IPC interface) who can call the omci_api_call function and provide malicious input. Vulnerability exploitability verification: Input is controllable (arg2 and arg3 are controlled by the attacker), the path is reachable (the function is exported and callable), the actual impact is stack overflow that can overwrite the return address, leading to arbitrary code execution. Proof of Concept (PoC) steps: The attacker needs to call the omci_api_call function, passing arg2 pointing to a data buffer larger than 2052 bytes, and arg3 set to a value larger than 2052 (e.g., 3000), to trigger the overflow. Complete attack chain: After authentication, the attacker constructs a malicious API call, triggers the memcpy overflow, and controls the program flow. Therefore, the vulnerability is real and the risk is high.
+
+## Verification Metrics
+
+- **Verification Duration:** 270.90 s
+- **Token Usage:** 234339
+
+---
+
+## Original Information
+
+- **File/Directory Path:** `usr/lib/libi2c_mipc_client.so`
+- **Location:** `libi2c_mipc_client.so:0xac8 I2c_cli_show_xvr_alarms_and_warnings`
+- **Description:** The function I2c_cli_show_xvr_alarms_and_warnings also contains a stack-based buffer overflow due to strcpy without bounds checking. The input 'param_1' is copied into a 248-byte stack buffer, and overflow can lead to code execution. This function is accessible via CLI commands through IPC.
+- **Code Snippet:**
+  ```
+  if (*(puVar2 + -0x10c) != 0) {
+      sym.imp.strcpy(puVar2 + iVar1 + -0x104, *(puVar2 + -0x10c));
+  }
+  ```
+- **Notes:** This function follows the same vulnerable pattern. Analysis of I2c_cli_show_xvr_inventory and I2c_cli_show_xvr_capability reveals identical issues, indicating widespread insecurity in the library.
+
+## Verification Conclusion
+
+- **Description Accuracy:** `accurate`
+- **Is Real Vulnerability:** `True`
+- **Risk Level:** `High`
+- **Detailed Reason:** The alert accurately describes a stack-based buffer overflow in I2c_cli_show_xvr_alarms_and_warnings due to unbounded strcpy. Evidence from disassembly shows strcpy copying arg1 to a stack buffer without size checks. The stack frame is 0x120 bytes, and the destination buffer is approximately 248 bytes based on offsets. The function is reachable via CLI commands through IPC (as indicated by the call to mipc_send_cli_msg), with no authentication visible in the code. Under the attack model of an unauthenticated remote or local attacker with access to the CLI interface, the input (arg1) is controllable, and a long input (>248 bytes) can overflow the buffer, overwriting the saved return address (lr) on the stack, leading to arbitrary code execution. No stack canaries or other mitigations are present. Exploitation PoC: An attacker can invoke the CLI command for I2c_cli_show_xvr_alarms_and_warnings with a payload of 248+ bytes followed by a crafted return address to execute shellcode or redirect control flow.
+
+## Verification Metrics
+
+- **Verification Duration:** 377.62 s
+- **Token Usage:** 530695
+
+---
+
+## Original Information
+
+- **File/Directory Path:** `usr/lib/libmidware_mipc_client.so`
+- **Location:** `libmidware_mipc_client.so:0x1838 (Midware_cli_insert_entry), strcpy calls at 0x186c and 0x1898`
+- **Description:** Buffer overflow vulnerability in `Midware_cli_insert_entry` function due to unsafe use of `strcpy` on user-controlled inputs `name` and `arg` without bounds checking. The function copies these inputs to fixed-size stack buffers (256 bytes each) using `strcpy`, which does not validate length. If `name` or `arg` exceed 255 bytes (plus null terminator), it will overflow the buffer, corrupting the stack. This can overwrite saved registers, including the return address, leading to arbitrary code execution. The function is exposed via CLI or IPC interfaces, and an authenticated non-root user can trigger this by providing overly long strings. The vulnerability is triggered when the function is called with long inputs, and exploitation involves crafting input to overwrite the return address and execute shellcode.
+- **Code Snippet:**
+  ```
+  if (*(puVar2 + -0x20c) != 0) {
+      sym.imp.strcpy(puVar2 + iVar1 + -0x208, *(puVar2 + -0x20c)); // Copies 'name' to stack buffer
+  }
+  ...
+  if (*(puVar2 + -0x214) != 0) {
+      sym.imp.strcpy(puVar2 + 4 + -0x104, *(puVar2 + -0x214)); // Copies 'arg' to stack buffer
+  }
+  ```
+- **Notes:** This finding is based on decompilation evidence from Radare2. The function lacks any length checks on inputs before copying. Similar vulnerabilities likely exist in other CLI functions (e.g., `Midware_cli_update_entry`, `Midware_cli_remove_entry`) due to repeated `strcpy` usage. Further analysis should verify the exact stack layout and potential mitigations (e.g., stack canaries), but the absence of bounds checking makes exploitation feasible. Recommend testing with long inputs to confirm crash and code execution.
+
+## Verification Conclusion
+
+- **Description Accuracy:** `accurate`
+- **Is Real Vulnerability:** `True`
+- **Risk Level:** `High`
+- **Detailed Reason:** The security alert accurately describes a buffer overflow vulnerability. Disassembly evidence shows the 'Midware_cli_insert_entry' function uses 'strcpy' at addresses 0x186c and 0x1898 to copy user-controlled 'name' and 'arg' inputs to fixed-size stack buffers (256 bytes each), without bounds checking. Stack frame analysis shows the buffers are located at fp-0x208 and fp-0x100, while the return address is saved at fp; an overflow can overwrite the return address. The attacker model is an authenticated non-root user providing overly long strings (exceeding 255 bytes) via CLI or IPC interfaces. The path is reachable because the 'strcpy' function executes directly when the function is called, and the actual impact is arbitrary code execution. Proof of Concept (PoC): As an authenticated user, craft a 'name' or 'arg' string exceeding 255 bytes, containing shellcode and a carefully designed payload to overwrite the return address; when the function is called, trigger the buffer overflow and control the execution flow.
+
+## Verification Metrics
+
+- **Verification Duration:** 603.77 s
+- **Token Usage:** 837000
+
+---
+
+## Original Information
+
+- **File/Directory Path:** `usr/lib/libavc_mipc_client.so`
+- **Location:** `libavc_mipc_client.so:0x11f8 and 0x122c in function Apm_cli_set_avc_value_str`
+- **Description:** The function Apm_cli_set_avc_value_str uses strcpy to copy user-controlled input parameters ('name' and 'value') into fixed-size stack buffers (256 bytes) without any bounds checking. This can lead to stack-based buffer overflows if the input exceeds the buffer size. An attacker with valid non-root credentials could trigger this by providing overly long strings via CLI or IPC mechanisms, potentially overwriting the return address and achieving arbitrary code execution. The trigger condition is when the 'name' or 'value' parameters are non-null and longer than 256 bytes. The function lacks any input validation or size checks, making it highly susceptible to exploitation.
+- **Code Snippet:**
+  ```
+  From decompilation:
+  if (*(puVar2 + -0x214) != 0) {
+      sym.imp.strcpy(puVar2 + iVar1 + -0x20c, *(puVar2 + -0x214)); // Copies 'name' into buffer auStack_210 [256]
+  }
+  if (*(puVar2 + -0x220) != 0) {
+      sym.imp.strcpy(puVar2 + 4 + -0x104, *(puVar2 + -0x220)); // Copies 'value' into buffer auStack_108 [256]
+  }
+  ```
+- **Notes:** This vulnerability is shared across multiple exported functions (e.g., Apm_cli_create_avc_entity, Apm_cli_delete_avc_entity) as identified via cross-references to strcpy. Further analysis is recommended to trace how user input reaches these functions via IPC or CLI interfaces, and to assess the exploitation feasibility in the broader system context. The library's role in AVC and IPC communication suggests potential impact on system stability and security if exploited.
+
+## Verification Conclusion
+
+- **Description Accuracy:** `accurate`
+- **Is Real Vulnerability:** `True`
+- **Risk Level:** `High`
+- **Detailed Reason:** The security alert accurately describes the vulnerability. The disassembled code shows that in the function Apm_cli_set_avc_value_str, strcpy is used to copy the 'name' and 'value' parameters into stack buffers, with only null pointer checks and no bounds checking. The stack allocation is 0x230 bytes, and the buffer size is inferred to be 256 bytes. The attacker model is an authenticated non-root user controlling the input via CLI or IPC interfaces. Calculations show that the 'value' buffer start address is 260 bytes from the saved return address (saved lr), so providing a 'value' string with a length ≥261 bytes can overwrite the return address, enabling arbitrary code execution. PoC: An attacker can construct a 261-byte 'value' string (excluding the null byte), where the last 4 bytes overwrite the return address, thereby controlling the execution flow. The vulnerability is practically exploitable, with high risk.
+
+## Verification Metrics
+
+- **Verification Duration:** 443.73 s
+- **Token Usage:** 544915
+
+---
+
+## Original Information
+
+- **File/Directory Path:** `usr/lib/libi2c_mipc_client.so`
+- **Location:** `libi2c_mipc_client.so:0x990 I2c_cli_show_xvr_a2d_values`
+- **Description:** The function I2c_cli_show_xvr_a2d_values contains a stack-based buffer overflow vulnerability due to the use of strcpy without bounds checking. The function copies the input parameter 'param_1' directly into a fixed-size stack buffer (248 bytes) using strcpy. If 'param_1' is longer than 248 bytes, it will overflow the buffer, potentially overwriting the return address and allowing arbitrary code execution. The function is called via CLI commands through IPC (mipc_send_cli_msg), and since the attacker has valid login credentials, they can trigger this function with a maliciously long input. The lack of stack canaries or other mitigations in the binary increases the exploitability.
+- **Code Snippet:**
+  ```
+  if (*(puVar2 + -0x10c) != 0) {
+      sym.imp.strcpy(puVar2 + iVar1 + -0x104, *(puVar2 + -0x10c));
+  }
+  ```
+- **Notes:** The input source 'param_1' is likely controlled via CLI commands. Further analysis is needed to trace the exact data flow from user input to this function. The binary lacks stack canaries based on r2 analysis, but ASLR might be enabled on the system, which could affect exploit reliability.
+
+## Verification Conclusion
+
+- **Description Accuracy:** `partially`
+- **Is Real Vulnerability:** `True`
+- **Risk Level:** `High`
+- **Detailed Reason:** Security alert core description is accurate: The function I2c_cli_show_xvr_a2d_values uses strcpy without bounds checking, leading to a stack buffer overflow. Stack canaries are disabled (evidence: i~canary returns false), and there are no other mitigation measures. The buffer dest is located at fp-0x104, the return address is at fp-4, the overflow needs to exceed 0x100 bytes (256 bytes), not the 248 bytes described in the alert, therefore the buffer size description is imprecise. The input parameter arg1 is controllable, called via CLI commands through IPC (mipc_send_cli_msg), the attacker model is a remote or local user who has passed authentication (valid credentials). The path is reachable, the overflow can overwrite the return address, enabling arbitrary code execution. The vulnerability is truly exploitable. PoC steps: As an authenticated user, trigger the CLI command to call this function, with a parameter that is a string longer than 256 bytes (e.g., 300 bytes of 'A'), to overwrite the return address and control the execution flow.
+
+## Verification Metrics
+
+- **Verification Duration:** 662.33 s
+- **Token Usage:** 904452
+
+---
+
+## Original Information
+
+- **File/Directory Path:** `usr/lib/sa/sa2`
+- **Location:** `sa2:1 (entire file, permission settings)`
+- **Description:** The file 'sa2' has global read, write, and execute permissions (-rwxrwxrwx), allowing any user (including non-root users) to modify the script content. If the script is executed by the system with higher privileges (such as root) (e.g., via a cron job), non-root users can gain root privileges by inserting malicious code (such as 'rm -rf /' or a reverse shell). The trigger condition is a non-root user modifying the script and waiting for the scheduled task to execute; the constraint is that the script must be invoked with root privileges, which is common in typical sysstat setups. Potential attack methods include directly editing the script to add malicious commands, which is simple and reliable.
+- **Code Snippet:**
+  ```
+  File permissions: -rwxrwxrwx
+  Partial script content:
+  #!/bin/sh
+  # /usr/lib/sa/sa2
+  ...
+  ${ENDIR}/sar $* -f ${DFILE} > ${RPT}
+  ...
+  ```
+- **Notes:** This vulnerability relies on the script being executed with higher privileges; it is recommended to check system cron jobs (such as /etc/cron.d/sysstat) to confirm the execution context. The attack chain is complete and verifiable: non-root user modifies script -> cron executes as root -> privilege escalation. No other obvious entry points (such as command-line arguments or environment variables) can directly lead to injection because parameters are passed to the 'sar' command and are not quoted, but 'sar' may handle them safely; configuration files are not writable, so they do not pose a direct threat.
+
+## Verification Conclusion
+
+- **Description Accuracy:** `partially`
+- **Is Real Vulnerability:** `False`
+- **Risk Level:** `None`
+- **Detailed Reason:** File permissions -rwxrwxrwx are confirmed, allowing any user to modify the script content, consistent with the alert description. However, no evidence was found indicating the script is executed with root privileges (e.g., via cron jobs: /etc/cron.d/sysstat and /etc/crontab do not exist, and a grep search for 'sa2' in the etc/ directory yielded no results). The attack chain requires the script to be executed with root privileges to achieve privilege escalation, but the execution context is not confirmed, therefore the vulnerability is not exploitable. The attacker model is a local unprivileged user, but the full path is lacking (input controllability is confirmed, path reachability is not confirmed). Based on current evidence, this vulnerability does not pose an actual threat.
+
+## Verification Metrics
+
+- **Verification Duration:** 287.66 s
+- **Token Usage:** 275336
+
+---
+
+## Original Information
+
+- **File/Directory Path:** `usr/lib/liboam_mipc_client.so`
+- **Location:** `liboam_mipc_client.so:0x000051f0 oam_cli_cmd_voip_sip_user_config_set`
+- **Description:** Function `oam_cli_cmd_voip_sip_user_config_set` contains multiple stack buffer overflow vulnerabilities due to the use of `strcpy` without input length validation. The function copies up to five user-controlled parameters (param_1 to param_4) into fixed-size stack buffers (each 256 bytes). If any parameter exceeds 256 bytes, `strcpy` will overflow the buffer, overwriting adjacent stack data including saved registers and return addresses. Trigger condition: An authenticated user executes a CLI command with parameters longer than 256 bytes. Potential attack: By carefully crafting long strings, an attacker can overwrite the return address to control program execution flow, leading to arbitrary code execution. The function uses `mipc_send_cli_msg` to send messages after copying, but the overflow occurs locally before any IPC communication.
+- **Code Snippet:**
+  ```
+  if (*(puVar2 + -0x50c) != 0) {
+      sym.imp.strcpy(puVar2 + 4 + -0x508, *(puVar2 + -0x50c));
+  }
+  if (*(puVar2 + -0x514) != 0) {
+      sym.imp.strcpy(puVar2 + 4 + -0x404, *(puVar2 + -0x514));
+  }
+  if (*(puVar2 + -0x518) != 0) {
+      sym.imp.strcpy(puVar2 + 4 + -0x304, *(puVar2 + -0x518));
+  }
+  if (*(puVar2 + 8) != 0) {
+      sym.imp.strcpy(puVar2 + 4 + -0x204, *(puVar2 + 8));
+  }
+  if (*(puVar2 + 0xc) != 0) {
+      sym.imp.strcpy(puVar2 + 4 + -0x104, *(puVar2 + 0xc));
+  }
+  ```
+- **Notes:** The vulnerability is confirmed through decompilation, but the full attack chain depends on external factors: the function must be accessible to authenticated users via CLI or IPC, and the system must lack stack protection (e.g., stack canaries). Further analysis should verify the calling context in components like CLI handlers and check for mitigations. This function is a high-priority target due to multiple input points.
+
+## Verification Conclusion
+
+- **Description Accuracy:** `accurate`
+- **Is Real Vulnerability:** `True`
+- **Risk Level:** `High`
+- **Detailed Reason:** Alert description is accurate: Decompiled code shows the function `oam_cli_cmd_voip_sip_user_config_set` at address 0x51f0 has five `strcpy` calls, copying parameters into stack buffers (like `auStack_50c[256]`), without length validation. The stack layout indicates the buffer size is fixed at 256 bytes and they are adjacent (offset difference approximately 0x100 bytes). If any parameter length exceeds 256 bytes, the overflow will overwrite stack data, including saved registers (like `unaff_r11`) and the return address (saved via `in_lr`). The attacker model is an authenticated user (calling the function via CLI or IPC) who can provide long parameters to trigger the overflow. Exploitability is high: the overflow occurs before the `mipc_send_cli_msg` call, allowing local execution flow control. Proof of Concept (PoC) steps: 1. As an authenticated user, call the function via CLI or IPC, providing at least one parameter with length >256 bytes (e.g., a 260-byte string). 2. Construct a malicious payload: first 256 bytes as padding (e.g., 'A'*256), followed by 4 bytes for the return address (e.g., an address pointing to shellcode). 3. Execute the command, triggering the `strcpy` overflow, overwriting the return address, achieving arbitrary code execution. Actual exploitation requires adjusting offsets based on the specific environment, but the vulnerability chain is complete.
+
+## Verification Metrics
+
+- **Verification Duration:** 296.51 s
+- **Token Usage:** 301976
+
+---
+
+## Original Information
+
+- **File/Directory Path:** `usr/lib/alsa-lib/smixer/smixer-ac97.so`
+- **Location:** `smixer-ac97.so:0x98c mixer_simple_basic_dlopen`
+- **Description:** The mixer_simple_basic_dlopen function in smixer-ac97.so uses the environment variable ALSA_MIXER_SIMPLE_MODULES to dynamically construct a library path that is passed to snd_dlopen for loading. An attacker with local login credentials can set this environment variable to point to a malicious shared library in a directory they control. When the ALSA mixer is initialized (e.g., by running ALSA commands like 'amixer' or 'aplay'), the function is triggered, loading the malicious library and executing arbitrary code in the context of the user. The attack requires the attacker to: 1) craft a malicious shared library, 2) set ALSA_MIXER_SIMPLE_MODULES to the library's path, and 3) trigger mixer initialization through ALSA utilities. The code lacks validation of the environment variable content, and the buffer allocation (based on strlen + 0x11) is sufficient to prevent overflow due to fixed append strings, but the uncontrolled path leads to arbitrary library loading. This provides a reliable code execution mechanism for local attackers, though it does not inherently escalate privileges beyond the user's existing access.
+- **Code Snippet:**
+  ```
+  iVar3 = sym.imp.getenv(*0xc2c + 0x9d4); // Get ALSA_MIXER_SIMPLE_MODULES
+  bVar13 = iVar3 == 0;
+  if (bVar13) {
+      iVar3 = *0xc30; // Use default if not set
+  }
+  if (bVar13) {
+      iVar3 = iVar3 + 0x9e4;
+  }
+  iVar4 = sym.imp.strlen(iVar3);
+  iVar4 = sym.imp.malloc(iVar4 + 0x11); // Allocate buffer
+  iVar8 = iVar4 + 0;
+  if (iVar8 != 0) {
+      sym.imp.strcpy(iVar4, iVar3); // Copy environment variable value
+      sym.imp.strcat(iVar8, *0xc34 + 0xa24); // Append first string (e.g., "/")
+      sym.imp.strcat(iVar8, *0xc38 + 0xa34); // Append second string (e.g., "smixer-sbase.so")
+      iVar3 = sym.imp.snd_dlopen(iVar8, 2); // Load library
+      // ... (error handling omitted)
+  }
+  ```
+- **Notes:** The vulnerability is directly exploitable by local users for code execution but does not provide privilege escalation without additional context. Further analysis could investigate if privileged processes (e.g., system daemons) use this mixer, which might increase the risk. The strings 'ALSA_MIXER_SIMPLE_MODULES', '/usr/lib/alsa-lib/smixer', and 'smixer-sbase.so' were identified in the binary, confirming the data flow. No buffer overflow was detected due to proper allocation sizes, but the lack of path validation remains the key issue.
+
+## Verification Conclusion
+
+- **Description Accuracy:** `accurate`
+- **Is Real Vulnerability:** `True`
+- **Risk Level:** `Medium`
+- **Detailed Reason:** The alert description is accurate, based on the following evidence: 1) The disassembled code shows the 'mixer_simple_basic_dlopen' function (0x0000098c) uses getenv to retrieve the environment variable 'ALSA_MIXER_SIMPLE_MODULES' (string located at 0x00001ba8), using a default value if not set; 2) The path is constructed via strlen, malloc (allocation size based on strlen + 0x11), strcpy, and strcat, appending strings such as 'smixer-sbase.so' (string located at 0x00001bc4); 3) It calls snd_dlopen to load the library (address 0x00000a3c). The code lacks path validation, allowing arbitrary library loading. The attacker model is a locally authenticated user (with login credentials) who can control the environment variable and trigger ALSA mixer initialization (e.g., by running 'amixer' or 'aplay'). The vulnerability is exploitable, providing code execution, but without direct privilege escalation. Reproducible PoC steps: 1) Create a malicious shared library (e.g., evil.so, containing malicious code); 2) Set the environment variable: export ALSA_MIXER_SIMPLE_MODULES=/path/to/evil.so; 3) Run ALSA commands such as 'amixer' or 'aplay' to trigger library loading, executing arbitrary code. The risk level is Medium, as it requires local access, but could be used for persistence or in combination with other vulnerabilities.
+
+## Verification Metrics
+
+- **Verification Duration:** 307.28 s
+- **Token Usage:** 323505
+
+---
+
+## Original Information
+
+- **File/Directory Path:** `usr/lib/liboam_mipc_client.so`
+- **Location:** `liboam_mipc_client.so:0x000041e0 oam_cli_cmd_llid_queue_strcmd_parse`
+- **Description:** Function `oam_cli_cmd_llid_queue_strcmd_parse` uses `strcpy` to copy two user-controlled parameters into 256-byte stack buffers without validation. Overflow can occur if inputs exceed 256 bytes, potentially leading to code execution. Trigger condition: User provides long strings via CLI. The function uses `mipc_send_cli_msg` for IPC, but the overflow is local.
+- **Code Snippet:**
+  ```
+  if (*(puVar2 + -0x22c) != 0) {
+      sym.imp.strcpy(puVar2 + iVar1 + -0x228, *(puVar2 + -0x22c));
+  }
+  if (*(puVar2 + -0x230) != 0) {
+      sym.imp.strcpy(puVar2 + 4 + -0x128, *(puVar2 + -0x230));
+  }
+  ```
+- **Notes:** The vulnerability is clear, but the function's specific use case might limit exploitability. Further analysis should determine how parameters are passed and if the function is called directly from user input.
+
+## Verification Conclusion
+
+- **Description Accuracy:** `accurate`
+- **Is Real Vulnerability:** `True`
+- **Risk Level:** `High`
+- **Detailed Reason:** The security alert accurately describes the vulnerability: the function `oam_cli_cmd_llid_queue_strcmd_parse` uses `strcpy` to copy user-controlled parameters `param_1` and `param_2` into stack buffers without length validation. The decompiled code shows the actual buffer size is 248 bytes (calculated from the offset), not 256 bytes as in the alert, but this does not affect the nature of the vulnerability. Input controllability: Parameters `param_1` and `param_2` are provided by the user as string pointers (e.g., CLI input). Path reachability: The attacker model is a local user or remote service calling this function (e.g., via CLI command), and `strcpy` is executed as long as the parameters are non-null. Actual impact: Overflow can overwrite stack variables, return addresses, or frame pointers, leading to arbitrary code execution. Vulnerability exploitability verification: An attacker providing strings longer than 248 bytes can trigger the overflow. PoC steps: 1) Identify the interface calling this function (e.g., CLI command); 2) Construct strings longer than 248 bytes as parameters; 3) Overflow to overwrite the return address and control execution flow. Evidence from the decompiled code confirms the use of `strcpy` and buffer limitations.
+
+## Verification Metrics
+
+- **Verification Duration:** 271.78 s
+- **Token Usage:** 273365
+
+---
+
+## Original Information
+
+- **File/Directory Path:** `usr/sbin/dhcp6s`
+- **Location:** `dhcp6s:0x0001ae70 fcn.0001a284`
+- **Description:** In the fcn.0001a284 function of the dhcp6s binary, there is a stack buffer overflow vulnerability when processing DHCPv6 option type 5 (Request Option). An attacker can send a specially crafted DHCPv6 packet over the network, where the option type is 5 and the length field (r8) is set to a large even value (e.g., >= 10), triggering the vulnerability. The code first checks if the option length is even, then right-shifts by one to get the number of items, but does not perform boundary checks on the item count. In the loop, memcpy is used to copy 2 bytes of data each time to the stack buffer var_194h (which has only 8 bytes of space). When the number of items exceeds 4, it overflows the stack frame, overwriting the return address or critical variables. An attacker can carefully craft the option data to control the overflow content, hijack the control flow, and achieve arbitrary code execution. Trigger condition: The attacker is connected to the device and has valid login credentials (non-root user), sending a malicious DHCPv6 packet to the dhcp6s service. Exploitation method: By overwriting the return address, jumping to shellcode or a ROP chain, it may be possible to escalate privileges (since dhcp6s may run with root privileges).
+- **Code Snippet:**
+  ```
+  0x0001ae14      000058e3       cmp r8, 0                   ; Check option length
+  0x0001ae18      0830a011       movne r3, r8
+  0x0001ae1c      01308803       orreq r3, r8, 1
+  0x0001ae20      010013e3       tst r3, 1                   ; Check if even
+  0x0001ae24      1101001a       bne 0x1b270                 ; If not, jump to error handling
+  0x0001ae28      c880b0e1       asrs r8, r8, 1             ; Right shift by one, get item count
+  0x0001ae2c      54feff0a       beq 0x1a784                 ; If 0, skip loop
+  ...
+  0x0001ae70      650f8de2       add r0, var_194h            ; Destination buffer address
+  0x0001ae74      0510a0e1       mov r1, r5                  ; Source data pointer
+  0x0001ae78      0220a0e3       mov r2, 2                   ; Copy 2 bytes
+  0x0001ae7c      020080e2       add r0, r0, 2               ; Increment destination address
+  0x0001ae80      c6d8ffeb       bl sym.imp.memcpy           ; Execute copy
+  0x0001ae64      025085e2       add r5, r5, 2               ; Increment source pointer
+  0x0001ae68      060055e1       cmp r5, r6                  ; Check loop condition
+  0x0001ae6c      44feff0a       beq 0x1a784                 ; End loop
+  ```
+- **Notes:** The vulnerability is located in the DHCPv6 option processing logic of dhcp6s, with the input point being received from the network via recvmsg. The attack chain is complete: from untrusted network input to dangerous operation (memcpy overflow). It is necessary to verify if dhcp6s runs with root privileges (common for DHCP servers); if not, exploitation may be limited. It is recommended to subsequently test actual exploitation, including constructing packets and checking mitigation measures (such as ASLR, stack protection). Related function: fcn.0001411c (main message processing) calls fcn.0001a284.
+
+## Verification Conclusion
+
+- **Description Accuracy:** `accurate`
+- **Is Real Vulnerability:** `True`
+- **Risk Level:** `High`
+- **Detailed Reason:** The security alert accurately describes the vulnerability: In the fcn.0001a284 function of dhcp6s, when processing DHCPv6 option type 5 (Request Option), the code checks if the option length is even (0x0001ae20: tst r3, 1), then right-shifts by one to get the number of items (0x0001ae28: asrs r8, r8, 1), but does not perform boundary checks on the item count. In the loop (starting at 0x0001ae70), memcpy is used to copy 2 bytes each time to the stack buffer var_194h (address set via add r0, var_194h). Stack frame analysis shows that sub sp, sp, 0x19c allocates 412 bytes, with var_194h offset at 0x194 (404 bytes), so the buffer has only 8 bytes of space (412 - 404 = 8). When the number of items exceeds 4, memcpy will overflow the stack frame, overwriting the saved return address (lr) or other variables. Attacker model: An unauthenticated remote attacker can send a specially crafted DHCPv6 packet over the network (option type 5, length field set to a large even value, e.g., >=10), triggering the vulnerability. The dhcp6s service typically runs with root privileges, so exploitability is high. PoC steps: 1. Construct a DHCPv6 packet, set option type to 5; 2. Set the option length to an even value (e.g., 10, corresponding to 5 items); 3. Embed a malicious payload (such as shellcode or a ROP chain) in the option data, carefully crafted to overwrite the return address; 4. Send the packet to the dhcp6s service port. The vulnerability chain is complete: from network input (recvmsg) to dangerous operation (memcpy overflow), supported by evidence.
+
+## Verification Metrics
+
+- **Verification Duration:** 246.04 s
+- **Token Usage:** 245554
+
+---
+
+## Original Information
+
+- **File/Directory Path:** `usr/lib/libigmp_mipc_client.so`
+- **Location:** `libigmp_mipc_client.so:0x1910 in dbg.iptvCliMgShowAll_mipc`
+- **Description:** The function iptvCliMgShowAll_mipc uses strcpy to copy a user-controlled string (passed as an argument) into a fixed-size stack buffer without any bounds checking. This occurs in the code at address 0x1910, where strcpy is called with the source directly from the function argument and the destination as a local stack buffer. The stack buffer is allocated with a size of approximately 288 bytes, but the specific destination buffer is at an offset that allows overflow after 268 bytes, enabling overwrite of the saved return address at fp+4. An attacker with CLI access can trigger this by providing a long string as the argument, leading to stack buffer overflow and potential arbitrary code execution. The vulnerability is directly exploitable due to the lack of input validation and the attacker's ability to control the input via CLI commands.
+- **Code Snippet:**
+  ```
+  0x000018f4      10311be5       ldr r3, [src]               ; igmp_mipc_client.c:288 ; 0x110
+  0x000018f8      000053e3       cmp r3, 0
+  0x000018fc      0400000a       beq 0x1914
+  0x00001900      10311be5       ldr r3, [src]               ; igmp_mipc_client.c:289 ; 0x110
+  0x00001904      412f4be2       sub r2, dest
+  0x00001908      0200a0e1       mov r0, r2                  ; char *dest
+  0x0000190c      0310a0e1       mov r1, r3                  ; const char *src
+  0x00001910      d8fcffeb       bl sym.imp.strcpy           ; char *strcpy(char *dest, const char *src)
+  ```
+- **Notes:** This finding is representative of multiple similar vulnerabilities in other CLI functions (e.g., iptvCliMgShowValid_mipc, iptvCliHostShowAll_mipc) that also use strcpy without bounds checking. The exploitability depends on the attacker having access to invoke these CLI commands, which is plausible given the user context. Further analysis could involve tracing the data flow from input sources to these functions, but the current evidence supports a viable attack chain. Additional functions using memcpy or other dangerous operations should be investigated for completeness.
+
+## Verification Conclusion
+
+- **Description Accuracy:** `accurate`
+- **Is Real Vulnerability:** `True`
+- **Risk Level:** `High`
+- **Detailed Reason:** The alert accurately describes a stack buffer overflow vulnerability in iptvCliMgShowAll_mipc. Evidence from disassembly shows strcpy is used without bounds checking at address 0x1910, copying the user-controlled argument (source) directly into the stack buffer 'dest' at fp-0x104. The saved return address is at fp, and the distance is 0x104 bytes (260 decimal), allowing overflow to overwrite it. The slight discrepancy in the alert's mentioned offset (268 bytes) does not affect the vulnerability's validity. Attack model: an attacker with CLI access can invoke this function and control the input string. Exploitability is high as providing a string longer than 260 bytes with crafted payload (e.g., shellcode and return address overwrite) can lead to arbitrary code execution. PoC steps: 1) Gain CLI access to the system, 2) Invoke the iptvCliMgShowAll_mipc function with a string of >260 bytes containing a payload that overwrites the return address, 3) The return address is controlled, redirecting execution to attacker-defined code.
+
+## Verification Metrics
+
+- **Verification Duration:** 505.08 s
+- **Token Usage:** 495064
+
+---
+
+## Original Information
+
+- **File/Directory Path:** `usr/sbin/dhcp6c`
+- **Location:** `dhcp6c:0x000196a0 client6_recv (specifically in case 0xfc processing section)`
+- **Description:** In the client6_recv function when processing DHCPv6 message type 252 (0xfc), an insecure string copy operation (strncpy but missing length parameter restriction) is used to copy network data to a fixed-size stack buffer (256 bytes). Due to the lack of input length validation, an attacker can send string data longer than 256 bytes causing a stack buffer overflow. The overflow can overwrite the return address or other critical stack data, allowing remote code execution. Trigger conditions include: the attacker possesses valid login credentials (non-root user) and can send a crafted DHCPv6 message to the target device. Potential exploitation methods include controlling network input to overwrite the return address, executing arbitrary shellcode, or jumping to malicious code. Constraints include insufficient message length checks (uVar12 should equal 15, but the condition allows other values), and the copy operation does not use a length parameter restriction.
+- **Code Snippet:**
+  ```
+  case 0xfc:
+      iVar7 = puVar17 + -0x17c;  // Points to stack buffer auStack_1a0 [256]
+      sym.imp.memset(iVar7, 0, 0x100);  // Clear 256-byte buffer
+      sym.imp.strncpy(iVar7, puVar9);   // Insecure copy of network data puVar9, missing length parameter
+      iVar4 = sym.imp.strlen(iVar7);    // Get string length
+      *(puVar17 + -0x20) = iVar7;
+      *(puVar17 + -0x24) = iVar4 + 1;
+      // Subsequent call to fcn.00017e04
+  ```
+- **Notes:** The stack buffer overflow vulnerability requires further verification of the stack layout (such as return address offset) to confirm exploitability. The attacker must be able to send DHCPv6 messages, possibly through the local network interface. Dynamic testing is recommended to reproduce the vulnerability. The related function fcn.00017e04 might be involved in subsequent processing, but no additional vulnerabilities were found.
+
+## Verification Conclusion
+
+- **Description Accuracy:** `accurate`
+- **Is Real Vulnerability:** `True`
+- **Risk Level:** `High`
+- **Detailed Reason:** The security alert accurately describes the vulnerability: in the client6_recv function when processing DHCPv6 message type 0xfc, strncpy is used to copy network data to a fixed-size stack buffer (256 bytes), but the lack of a length parameter restriction leads to a stack buffer overflow. Evidence includes: 1) Code shows memset clearing a 256-byte buffer (0x100), followed by a strncpy call that only passes the destination buffer and source pointer, without a length parameter; 2) Input data (puVar9) comes from the network and is controllable by the attacker; 3) The path is reachable, an attacker can trigger it by sending a crafted DHCPv6 message; 4) The overflow can overwrite the return address, allowing remote code execution. Attacker model: a remote attacker with valid login credentials (non-root user). PoC steps: Construct a DHCPv6 message (type 0xfc) with a data field filled with a payload exceeding 256 bytes (e.g., shellcode and a calculated return address), send it to the target device, trigger the overflow to execute arbitrary code.
+
+## Verification Metrics
+
+- **Verification Duration:** 385.87 s
+- **Token Usage:** 714635
+
+---
+
+## Original Information
+
+- **File/Directory Path:** `usr/sbin/zebra`
+- **Location:** `zebra:0x0001250c dbg.zread_ipv4_add`
+- **Description:** A buffer overflow vulnerability exists in the zread_ipv4_add function when handling IPv4 route addition requests from clients. The function reads a prefix length value (iVar5) from the client stream, which is attacker-controlled, and uses it to calculate the size for reading data into a fixed-size stack buffer (auStack_1c, 28 bytes). The calculation (iVar5 + 7) >> 3 can result in a size of up to 32 bytes when iVar5 is 255, causing a 4-byte overflow. This overflow can overwrite saved registers or the return address on the stack, potentially leading to arbitrary code execution. The vulnerability is triggered when a client sends a message of type 6 (IPv4 add) with a crafted large prefix length value. As zebra typically runs with root privileges to manage kernel routing tables, successful exploitation could grant root access to the attacker.
+- **Code Snippet:**
+  ```
+  iVar5 = dbg.stream_getc(uVar7);
+  dbg.stream_get(puVar11 + -0xc, uVar7, iVar5 + 7U >> 3);
+  ```
+- **Notes:** The vulnerability was identified through static analysis using Radare2 decompilation. The exact stack layout and exploitability would benefit from dynamic analysis or further verification. Additional input points like other zread_* functions or netlink handlers should be examined for similar issues. The IPC socket path for zebra is not hardcoded in the binary but is typically configured in system files, which should be identified for complete attack chain validation.
+
+## Verification Conclusion
+
+- **Description Accuracy:** `partially`
+- **Is Real Vulnerability:** `True`
+- **Risk Level:** `Medium`
+- **Detailed Reason:** Verification based on disassembly evidence: In the zread_ipv4_add function, the prefix length value (iVar5) is read from the client stream (attacker-controlled), the calculation (iVar5 + 7) >> 3 results in a maximum of 32 bytes, while the stack buffer starts at sp+8, with local variable space of only 24 bytes, causing a 16-byte overflow into the saved registers r4-r7 (sp+24 to sp+39), but the return address (lr at sp+44) is not overwritten. Input controllability is established (via stream_getc), path reachability is established (via zebra_client_read handling type 6 messages). Attacker model: Unauthenticated remote attacker or authenticated local user can send malicious messages to zebra (zebra runs with root privileges). Actual impact: Overflow may overwrite saved registers, causing crashes or partial control of execution flow, but arbitrary code execution is not feasible (return address is safe). Therefore, the vulnerability is real but severity is limited. PoC steps: Attacker needs to construct a malicious message, type 6 (IPv4 add), set the prefix length to 255, triggering a calculated size of 32 bytes, overflowing the buffer. For example, send crafted packets via local socket or network interface.
+
+## Verification Metrics
+
+- **Verification Duration:** 469.63 s
+- **Token Usage:** 825936
+
+---
+
+## Original Information
+
+- **File/Directory Path:** `usr/lib/liboam_mipc_client.so`
+- **Location:** `liboam_mipc_client.so:0x00003234 oam_cli_cmd_set_onu_loid`
+- **Description:** Function `oam_cli_cmd_set_onu_loid` uses `strcpy` to copy three user-controlled parameters into fixed-size stack buffers (256 bytes each) without bounds checks. If any parameter length exceeds 256 bytes, a buffer overflow occurs, potentially overwriting the return address. Trigger condition: An authenticated user provides long strings via CLI commands. Potential attack: Overflow can lead to arbitrary code execution by hijacking the return address. The function calls `mipc_send_cli_msg` after copying, but the overflow happens locally.
+- **Code Snippet:**
+  ```
+  if (*(puVar2 + -0x30c) != 0) {
+      sym.imp.strcpy(puVar2 + iVar1 + -0x304, *(puVar2 + -0x30c));
+  }
+  if (*(puVar2 + -0x310) != 0) {
+      sym.imp.strcpy(puVar2 + 4 + -0x204, *(puVar2 + -0x310));
+  }
+  if (*(puVar2 + -0x314) != 0) {
+      sym.imp.strcpy(puVar2 + 4 + -0x104, *(puVar2 + -0x314));
+  }
+  ```
+- **Notes:** The stack layout suggests the buffers are adjacent, increasing the risk of overwriting critical data. Exploitability is high if the function is exposed to user input. Recommend analyzing the CLI interface to confirm accessibility.
+
+## Verification Conclusion
+
+- **Description Accuracy:** `accurate`
+- **Is Real Vulnerability:** `True`
+- **Risk Level:** `High`
+- **Detailed Reason:** The alert accurately describes the buffer overflow vulnerability in `oam_cli_cmd_set_onu_loid`. Evidence from Radare2 disassembly shows three `strcpy` calls copying user-controlled parameters into fixed-size stack buffers (256 bytes each) without bounds checks. The stack layout confirms the buffers are adjacent, with the third buffer ending exactly at the saved return address (lr). If any parameter length exceeds 256 bytes, a buffer overflow occurs, overwriting the return address. This is exploitable by an authenticated user (attack model: authenticated user with CLI access) providing long strings via CLI commands. A proof-of-concept (PoC) involves invoking the command with the third argument longer than 256 bytes (e.g., 300 bytes), where the overflow overwrites the return address. By crafting the input to control the return address (e.g., with shellcode or ROP gadgets), arbitrary code execution can be achieved. The full attack chain: 1) Attacker gains authenticated CLI access, 2) Attacker calls `oam_cli_cmd_set_onu_loid` with a long third parameter, 3) `strcpy` overflows the buffer and overwrites saved lr, 4) Function return jumps to attacker-controlled address, executing arbitrary code. This constitutes a high-risk vulnerability due to the potential for full system compromise.
+
+## Verification Metrics
+
+- **Verification Duration:** 717.33 s
+- **Token Usage:** 904569
+
+---
+

@@ -27,7 +27,7 @@ firmhive/
 │   ├── assistants.py      # 🐝 专业化分析智能体（目录、文件、函数）
 │   └── tools.py           # 🛠️ 固件分析工具（文件系统、radare2 封装）
 │
-├── baselines/             # 基线智能体实现（SRA、MAS）
+├── eval/             # 基线智能体实现（SRA、MAS）
 └── scripts/               # 执行分析和基线的脚本
 ```
 

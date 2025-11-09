@@ -1,4 +1,4 @@
-# FirmHive Artifact (Framework Overview)
+# FirmHive
 
 FirmHive is a hierarchical multi‑agent framework for automated firmware analysis. This branch is an anonymized, artifact‑ready release focused on the framework itself: how agents collaborate, how the blueprint configures the system, and how tools are orchestrated.
 
@@ -39,6 +39,84 @@ FirmHive is a hierarchical multi‑agent framework for automated firmware analys
 - Parallelization: switch delegators to parallel variants for breadth; keep terminal agents focused on tool work.
 - Budgets: per‑agent `max_iterations`, timeouts, and context paths (logs, output subdirs).
 
+### Blueprint Examples (A/B/C)
+Below are minimal code sketches you can drop into a script/notebook to build a custom config using the same primitives in `firmhive/blueprint.py`.
+
+```python
+from agent.core.builder import AgentConfig, AssistantToolConfig, build_agent
+from firmhive.blueprint import (
+  create_firmware_analysis_blueprint,
+  create_file_analysis_config,
+  _create_nested_call_chain_config,
+  ExecutorAgent,
+  DEFAULT_WORKER_EXECUTOR_SYSTEM_PROMPT,
+)
+from firmhive.assistants import (
+  ParallelDeepDirectoryAnalysisDelegator,
+  ParallelDeepFileAnalysisDelegator,
+  DeepDirectoryAnalysisAssistant,
+  DeepFileAnalysisAssistant,
+)
+from firmhive.tools import GetContextInfoTool, ShellExecutorTool, Radare2FileTargetTool
+
+# A) Minimal, fast, 2-level blueprint (no KB)
+cfg_A = create_firmware_analysis_blueprint(
+  include_kb=False,  # no knowledge hub
+  max_levels=2,      # shallow: directory -> worker
+  max_iterations_per_agent=30,
+)
+
+# B) Breadth-first, parallel heavy 3-level blueprint (with KB)
+file_cfg = create_file_analysis_config(include_kb=True, max_iterations=40)
+terminal = AgentConfig(
+  agent_class=ExecutorAgent,
+  tool_configs=[
+    GetContextInfoTool, ShellExecutorTool, Radare2FileTargetTool,
+    AssistantToolConfig(assistant_class=ParallelDeepFileAnalysisDelegator, sub_agent_config=file_cfg),
+  ],
+  system_prompt=DEFAULT_WORKER_EXECUTOR_SYSTEM_PROMPT,
+  max_iterations=40,
+)
+cfg_B = AgentConfig(
+  agent_class=ExecutorAgent,
+  tool_configs=[
+    GetContextInfoTool, ShellExecutorTool,
+    AssistantToolConfig(assistant_class=ParallelDeepDirectoryAnalysisDelegator, sub_agent_config=terminal),  # parallel dirs
+    AssistantToolConfig(assistant_class=ParallelDeepFileAnalysisDelegator, sub_agent_config=file_cfg),        # parallel files
+  ],
+  system_prompt=DEFAULT_WORKER_EXECUTOR_SYSTEM_PROMPT,
+  max_iterations=40,
+)
+
+# C) Function call-chain focused (deep nested), combine with KB
+call_chain_cfg = _create_nested_call_chain_config(max_iterations=50, max_depth=5)
+file_cfg_fn = create_file_analysis_config(include_kb=True, max_iterations=50)
+cfg_C = AgentConfig(
+  agent_class=ExecutorAgent,
+  tool_configs=[
+    GetContextInfoTool, ShellExecutorTool,
+    AssistantToolConfig(assistant_class=DeepFileAnalysisAssistant, sub_agent_config=file_cfg_fn),
+    AssistantToolConfig(assistant_class=ParallelDeepFileAnalysisDelegator, sub_agent_config=file_cfg_fn),
+    AssistantToolConfig(assistant_class=ParallelDeepDirectoryAnalysisDelegator, sub_agent_config=AgentConfig(
+      agent_class=ExecutorAgent,
+      tool_configs=[AssistantToolConfig(assistant_class=DeepDirectoryAnalysisAssistant, sub_agent_config=call_chain_cfg)],
+      system_prompt=DEFAULT_WORKER_EXECUTOR_SYSTEM_PROMPT,
+      max_iterations=50,
+    )),
+  ],
+  system_prompt=DEFAULT_WORKER_EXECUTOR_SYSTEM_PROMPT,
+  max_iterations=50,
+)
+
+# Build an agent from any cfg (A/B/C) with your runtime context
+# agent = build_agent(cfg_B, context=your_context)
+```
+
+Effects in practice:
+- A: Lowest overhead; small images finish quickly; good for smoke tests.
+- B: High coverage and speed on large trees; agent can call delegators with `{"run_in_background": true}` to overlap work.
+- C: Emphasizes deep function‑level tracing (taint/call‑chain evidence); better for complex binaries.
+
 ## Setup
 - Python 3.8+
 - radare2 (latest); optional: `r2pm init && r2pm install r2ghidra`
@@ -52,13 +130,6 @@ export KARONTE_DATASET_DIR=/path/to/karonte_dataset
 - Hierarchical (our system):
 ```bash
 bash scripts/run_hierarchical.sh --T5_COMPREHENSIVE_ANALYSIS
-```
-- Baselines:
-```bash
-bash scripts/run_baseline_agent.sh
-bash scripts/run_baseline_agent_kb.sh
-bash scripts/run_baseline_pipeline.sh
-bash scripts/run_baseline_pipeline_kb.sh
 ```
 
 ## Results

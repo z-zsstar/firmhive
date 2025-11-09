@@ -25,7 +25,7 @@ FINDING_SCHEMA: Dict[str, Dict[str, Any]] = {
     "link_identifiers": {
         "type": "array",
         "items": {"type": "string"},
-        "description": "将此发现与其他发现连接的特定标识符列表（NVRAM 变量、函数名、文件路径）。避免使用通用术语，确保精准追踪跨文件、跨进程的数据流与交互。\n"
+        "description": "此发现的特定标识符列表（NVRAM 变量、函数名、文件路径）。避免使用通用术语，确保精准追踪跨文件、跨进程的数据流与交互。\n"
     },
     "code_snippet": {
         "type": "string",

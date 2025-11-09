@@ -28,7 +28,7 @@ def build_assistant(assistant_config: AssistantToolConfig, context: FlexibleCont
     Only creates the Assistant itself, does not recursively instantiate its sub-tools.
     Passes sub-tool configuration as-is for deferred instantiation.
     """
-    from agent.core.assitants import BaseAssistant, ParallelBaseAssistant
+    from agent.core.assistants import BaseAssistant, ParallelBaseAssistant
 
     sub_agent_tool_configs = assistant_config.sub_agent_config.tool_configs if assistant_config.sub_agent_config else []
 

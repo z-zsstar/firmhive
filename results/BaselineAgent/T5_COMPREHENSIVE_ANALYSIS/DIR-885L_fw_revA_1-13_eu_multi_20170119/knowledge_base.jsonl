@@ -1,3 +1,0 @@
-{"location": "sbin/httpd:0x1dfcc (fcn.0001dfcc)", "confidence": 0.0, "description": "general vulnerability", "code_snippet": "iVar1 = sym.imp.system(pcVar5);", "link_identifiers": ["httpd", "system", "0x1dfcc", "command injection"]}
-{"location": "sbin/smbd:0xcab04 (fcn.000ca918)", "confidence": 0.0, "description": "general vulnerability", "code_snippet": "sym.imp.system(param_1);", "link_identifiers": ["smbd", "system", "0xc6e78", "0xcab04", "getenv", "command injection"]}
-{"location": "Multiple locations in sbin/httpd and sbin/smbd", "confidence": 0.0, "description": "general vulnerability", "code_snippet": "N/A (Multiple instances)", "link_identifiers": ["strcpy", "sprintf", "memory corruption"]}

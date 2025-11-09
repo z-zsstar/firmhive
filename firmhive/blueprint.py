@@ -9,7 +9,7 @@ from typing import Dict, List, Any, Optional, Type, Union
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from agent.base import BaseAgent
-from agent.core.assitants import BaseAssistant, ParallelBaseAssistant
+from agent.core.assistants import BaseAssistant, ParallelBaseAssistant
 from agent.core.builder import build_agent, AgentConfig, AssistantToolConfig
 
 from firmhive.utils.finder import find_firmware_root
@@ -18,7 +18,7 @@ from firmhive.tools import FlexibleContext, ExecutableTool, GetContextInfoTool, 
     #  VulnerabilitySearchTool
 
 from firmhive.knowagent import KnowledgeBaseAgent,QueryFindingsTool,ListUniqueValuesTool,StoreFindingsTool,DEFAULT_KB_SYSTEM_PROMPT
-from firmhive.assitants import ParallelFunctionDelegator,ParallelDeepFileAnalysisDelegator,ParallelDeepDirectoryAnalysisDelegator,\
+from firmhive.assistants import ParallelFunctionDelegator,ParallelDeepFileAnalysisDelegator,ParallelDeepDirectoryAnalysisDelegator,\
                             DeepFileAnalysisAssistant,DeepDirectoryAnalysisAssistant
 
 

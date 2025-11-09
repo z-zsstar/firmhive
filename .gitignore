@@ -74,4 +74,6 @@ env.bak/
 venv.bak/
 *.ini
 output/
+result/
 results/
+results_cn/

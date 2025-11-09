@@ -5,7 +5,8 @@ METHOD_NAME="Hierarchical"
 
 BASE_OUTPUT_DIR="output"
 
-FIRMWARE_BASE_DIR="/media/zxr/Elements/karonte"
+# 数据集根目录（匿名化），可通过环境变量覆盖
+FIRMWARE_BASE_DIR="${KARONTE_DATASET_DIR:-/path/to/karonte_dataset}"
 
 # 分析阶段的并发固件数
 MAX_CONCURRENT_JOBS=12
@@ -223,4 +224,3 @@ echo "  - 验证结果 (过滤后): results/$METHOD_NAME/<任务名>/<固件名>
 echo "  - 分析报告: results/$METHOD_NAME/<任务名>/<固件名>/analysis_report.md"
 echo "  - 验证报告: results/$METHOD_NAME/<任务名>/<固件名>/verification_report.md"
 echo ""
-

@@ -10,7 +10,7 @@
 - 📚 **主动知识中心 (PKH)**：中央知识库（`firmhive/knowagent.py`），使智能体能够存储、查询和主动关联发现，形成集体智能。
 - ✅ **两阶段分析（探索与验证）**：首先探索固件以发现广泛的潜在漏洞，然后启动第二次聚焦验证阶段以过滤误报并确认发现。
 - 🔧 **可自定义分析蓝图**：分析策略不是硬编码的。您可以在 `firmhive/blueprint.py` 中定义自己的分层工作流、智能体类型、工具和提示词。
-- 🤖 **专业化智能体**：`firmhive/assitants.py` 中设计了一套专门用于特定任务的智能体，如目录遍历、文件分析和深度二进制函数追踪。
+- 🤖 **专业化智能体**：`firmhive/assistants.py` 中设计了一套专门用于特定任务的智能体，如目录遍历、文件分析和深度二进制函数追踪。
 
 ## 项目结构
 
@@ -24,10 +24,10 @@ firmhive/
 ├── firmhive/              # 固件分析的领域特定实现
 │   ├── blueprint.py       # 🧬 分析层次结构、智能体配置和系统提示词
 │   ├── knowagent.py       # 🧠 主动知识中心 (PKH) 智能体
-│   ├── assitants.py       # 🐝 专业化分析智能体（目录、文件、函数）
+│   ├── assistants.py      # 🐝 专业化分析智能体（目录、文件、函数）
 │   └── tools.py           # 🛠️ 固件分析工具（文件系统、radare2 封装）
 │
-├── eval/                  # 评估与基线智能体实现（SRA、MAS）
+├── baselines/             # 基线智能体实现（SRA、MAS）
 └── scripts/               # 执行分析和基线的脚本
 ```
 
@@ -71,6 +71,12 @@ cp config.ini.template config.ini
 python -u firmhive/blueprint.py \
   --search_dir /path/to/extracted_firmware \
   --output ./output
+```
+
+数据集根目录（供脚本使用）：建议通过环境变量设置，避免硬编码
+
+```bash
+export KARONTE_DATASET_DIR=/path/to/karonte_dataset
 ```
 
 ## 理解输出结果
@@ -149,7 +155,7 @@ output/
 
 **⚠️ 实验性功能**：此异步机制尚未经过详尽测试。为了最大稳定性，您可以禁用它。如果遇到挂起，这是首先要检查的地方。
 
-**重要提醒**：如果要完全禁用异步机制，建议从工具定义中移除 `run_in_background` 参数（在 `firmhive/assitants.py` 中），而不是仅仅将其设置为 `false`。仅设置为 `false` 可能会导致 LLM 智能体仍然尝试使用该参数，引发混淆或不可预期的行为。
+**重要提醒**：如果要完全禁用异步机制，建议从工具定义中移除 `run_in_background` 参数（在 `firmhive/assistants.py` 中），而不是仅仅将其设置为 `false`。仅设置为 `false` 可能会导致 LLM 智能体仍然尝试使用该参数，引发混淆或不可预期的行为。
 
 ### 知识中心
 
@@ -178,7 +184,7 @@ bash scripts/run_baseline_pipeline_kb.sh  # MAS + 知识库
 
 ### 结果位置
 
-所有评估输出存储在 `results/` 目录中，按方法组织。
+所有评估输出存储在 `result/` 目录中，按方法组织。论文打包仅包含 `exp/`，本地临时输出 `output/` 与 `result/` 均不提交。
 
 ```
 results/
@@ -303,7 +309,7 @@ r2 -qc 'aa; pdg' /tmp/test
 
 ### 异步执行
 `run_in_background` 功能使智能体能够异步委托耗时任务。**这是一个实验性功能**，旨在处理多智能体协作开销。我们尚未在所有场景中彻底测试此机制。如果遇到问题：
-- 禁用所有异步机制（建议从 `firmhive/assitants.py` 的工具定义中移除 `run_in_background` 参数，而非仅设置为 `false`）
+- 禁用所有异步机制（建议从 `firmhive/assistants.py` 的工具定义中移除 `run_in_background` 参数，而非仅设置为 `false`）
 - 调整智能体配置中的超时值
 - 报告任何错误或意外行为以供未来改进
 

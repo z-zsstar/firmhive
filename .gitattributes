@@ -1,0 +1,8 @@
+* text=auto
+output/ export-ignore
+result/ export-ignore
+results/ export-ignore
+results_cn/ export-ignore
+__pycache__/ export-ignore
+.env export-ignore
+.venv/ export-ignore

@@ -1,7 +1,8 @@
 import os
 import argparse
 
-BASE_FIRMWARE_DIR = "/Elements/karonte_datatset"
+# 数据集根目录（匿名化），可用环境变量 KARONTE_DATASET_DIR 或命令行 --base_dir 覆盖
+BASE_FIRMWARE_DIR = os.environ.get("KARONTE_DATASET_DIR", "/path/to/karonte_dataset")
 
 BRANDS_IN_ORDER = ["d-link", "NETGEAR", "Tenda", "TP_Link"]
 

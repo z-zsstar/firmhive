@@ -74,8 +74,6 @@ env.bak/
 venv.bak/
 *.ini
 
-# Run outputs (not for commit)
+# Run outputs (keep results/ tracked for artifact visibility)
 output/
 result/
-results/
-
